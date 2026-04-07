@@ -1,12 +1,14 @@
 package com.weibo.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.weibo.handler.StringListTypeHandler;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 微博实体类
@@ -14,19 +16,19 @@ import java.time.LocalDateTime;
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@TableName("weibos")
+@TableName(value = "weibos", autoResultMap = true)
 public class Weibo implements Serializable {
     
     private static final long serialVersionUID = 1L;
     
     /**
-     * 微博ID
+     * 微博 ID
      */
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
     
     /**
-     * 用户ID
+     * 用户 ID
      */
     private Long userId;
     
@@ -36,9 +38,10 @@ public class Weibo implements Serializable {
     private String content;
     
     /**
-     * 图片URL数组(JSON)
+     * 图片 URL 数组 (JSON)
      */
-    private String images;
+    @TableField(value = "images", typeHandler = StringListTypeHandler.class)
+    private List<String> images;
     
     /**
      * 转发数

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Avatar, Dropdown, Space, Button } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Space, Button, Modal } from 'antd';
 import { HomeOutlined, UserOutlined, LogoutOutlined, LoginOutlined, UserAddOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { getCurrentUser, logout } from '../api/auth';
@@ -22,12 +22,29 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const userInfo = getCurrentUser();
     setUser(userInfo);
+    
+    // 监听存储变化（用于处理退出登录）
+    const handleStorageChange = () => {
+      const currentUser = getCurrentUser();
+      setUser(currentUser);
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const handleLogout = () => {
-    logout();
-    setUser(null);
-    navigate('/login');
+    Modal.confirm({
+      title: '确认退出',
+      content: '确定要退出登录吗？',
+      okText: '确认',
+      cancelText: '取消',
+      onOk: () => {
+        logout();
+        setUser(null);
+        navigate('/login');
+      },
+    });
   };
 
   const userMenuItems: MenuProps['items'] = [
@@ -35,6 +52,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
       key: 'profile',
       icon: <UserOutlined />,
       label: <Link to={`/user/${user?.id}`}>个人主页</Link>,
+      onClick: (e) => e.domEvent.stopPropagation(),
     },
     {
       type: 'divider',
@@ -43,7 +61,10 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
       key: 'logout',
       icon: <LogoutOutlined />,
       label: '退出登录',
-      onClick: handleLogout,
+      onClick: (e) => {
+        e.domEvent.stopPropagation();
+        handleLogout();
+      },
     },
   ];
 

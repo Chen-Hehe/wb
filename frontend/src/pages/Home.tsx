@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Avatar, Dropdown, Space, Button, Input, message, Modal, Card } from 'antd';
+import { Avatar, Dropdown, Space, Button, Input, message, Modal, Card, Upload, Image } from 'antd';
 import {
   MoreOutlined,
   DeleteOutlined,
@@ -10,13 +10,18 @@ import {
   ShareAltOutlined,
   SendOutlined,
   UserOutlined,
+  PictureOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
+import type { UploadFile } from 'antd';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
 import { getCurrentUser } from '../api/auth';
 import { getWeiboList, deleteWeibo, likeWeibo, unlikeWeibo, publishWeibo, type Weibo } from '../api/weibo';
 import { getUserInfo, type User } from '../api/user';
+import { uploadImage } from '../api/upload';
+import { getImageUrl } from '../config';
 import './Home.css';
 
 dayjs.extend(relativeTime);
@@ -31,6 +36,9 @@ const Home = () => {
   const [loading, setLoading] = useState(false);
   const [publishContent, setPublishContent] = useState('');
   const [publishing, setPublishing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadCurrentUser();
@@ -51,7 +59,13 @@ const Home = () => {
     setLoading(true);
     try {
       const data = await getWeiboList();
-      setWeibos(data.records || []);
+      console.log('微博列表数据:', data);
+      const weibosData = data?.records || data?.list || [];
+      console.log('解析后的微博数据:', weibosData);
+      if (weibosData.length > 0) {
+        console.log('第一条微博的 images:', weibosData[0].images);
+      }
+      setWeibos(weibosData);
     } catch (error) {
       console.error('加载微博失败:', error);
     } finally {
@@ -60,25 +74,60 @@ const Home = () => {
   };
 
   const handlePublish = async () => {
-    if (!publishContent.trim()) {
-      message.warning('请输入微博内容');
+    if (!publishContent.trim() && uploadFiles.length === 0) {
+      message.warning('请输入微博内容或上传图片');
       return;
     }
 
     setPublishing(true);
     try {
+      // 上传图片
+      let imageUrls: string[] = [];
+      if (uploadFiles.length > 0) {
+        setUploading(true);
+        const uploadPromises = uploadFiles.map((file) => uploadImage(file.originFileObj!));
+        const results = await Promise.all(uploadPromises);
+        imageUrls = results.map((res: any) => res.imgUrl);
+        setUploading(false);
+      }
+
+      // 发布微博
       await publishWeibo({
         title: '新鲜事',
         content: publishContent,
+        images: imageUrls.length > 0 ? imageUrls : undefined,
       });
+      
       message.success('发布成功');
       setPublishContent('');
+      setUploadFiles([]);
       loadWeibos();
     } catch (error: any) {
       console.error('发布失败:', error);
+      setUploading(false);
     } finally {
       setPublishing(false);
     }
+  };
+
+  const handleFileChange = (file: File) => {
+    // 验证文件类型
+    if (!file.type.startsWith('image/')) {
+      message.error('只能上传图片文件');
+      return false;
+    }
+    
+    // 验证文件大小 (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      message.error('图片大小不能超过 5MB');
+      return false;
+    }
+    
+    return true;
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setUploadFiles(uploadFiles.filter((_, i) => i !== index));
   };
 
   const handleLike = async (weiboId: number, isLiked: boolean) => {
@@ -136,8 +185,68 @@ const Home = () => {
               autoSize={{ minRows: 3, maxRows: 6 }}
               style={{ resize: 'none' }}
             />
-            <div style={{ textAlign: 'right', marginTop: 12 }}>
-              <Button type="primary" icon={<SendOutlined />} onClick={handlePublish} loading={publishing}>
+            
+            {/* 图片预览 */}
+            {uploadFiles.length > 0 && (
+              <div style={{ display: 'flex', gap: '8px', marginTop: 12, flexWrap: 'wrap' }}>
+                {uploadFiles.map((file, index) => (
+                  <div key={index} style={{ position: 'relative', display: 'inline-block' }}>
+                    <Image
+                      src={URL.createObjectURL(file.originFileObj!)}
+                      alt={file.name}
+                      style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 4 }}
+                    />
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<CloseOutlined />}
+                      onClick={() => handleRemoveImage(index)}
+                      style={{
+                        position: 'absolute',
+                        top: -8,
+                        right: -8,
+                        padding: 0,
+                        width: 20,
+                        height: 20,
+                        background: 'rgba(0,0,0,0.5)',
+                        color: '#fff',
+                        borderRadius: '50%',
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file && handleFileChange(file)) {
+                    setUploadFiles([...uploadFiles, { uid: Date.now(), name: file.name, originFileObj: file }]);
+                  }
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                  }
+                }}
+              />
+              <Button 
+                icon={<PictureOutlined />} 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadFiles.length >= 9}
+              >
+                图片 {uploadFiles.length > 0 && `(${uploadFiles.length}/9)`}
+              </Button>
+              <Button 
+                type="primary" 
+                icon={<SendOutlined />} 
+                onClick={handlePublish} 
+                loading={publishing || uploading}
+              >
                 发布
               </Button>
             </div>
@@ -194,15 +303,23 @@ const Home = () => {
 
               {weibo.images && weibo.images.length > 0 && (
                 <div className="weibo-images" style={{ display: 'flex', gap: '8px', marginTop: 12, flexWrap: 'wrap' }}>
-                  {weibo.images.map((img, index) => (
-                    <img 
-                      key={index} 
-                      src={img} 
-                      alt="" 
-                      className="weibo-image"
-                      style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer' }}
-                    />
-                  ))}
+                  {weibo.images.map((img: string, index: number) => {
+                    const imgUrl = getImageUrl(img);
+                    console.log(`微博 ${weibo.id} 图片 ${index}:`, img, '=>', imgUrl);
+                    return (
+                      <Image
+                        key={index} 
+                        src={imgUrl} 
+                        alt="" 
+                        className="weibo-image"
+                        style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 4, cursor: 'pointer' }}
+                        preview={{
+                          src: imgUrl,
+                        }}
+                        fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="
+                      />
+                    );
+                  })}
                 </div>
               )}
 

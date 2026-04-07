@@ -40,8 +40,8 @@ public class WeiboServiceImpl implements WeiboService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public WeiboVO publishWeibo(Long userId, Weibo weibo) {
-        if (!StringUtils.hasText(weibo.getContent())) {
-            throw BusinessException.of("微博内容不能为空");
+        if (!StringUtils.hasText(weibo.getContent()) && (weibo.getImages() == null || weibo.getImages().isEmpty())) {
+            throw BusinessException.of("微博内容或图片不能为空");
         }
         
         weibo.setUserId(userId);
@@ -235,8 +235,7 @@ public class WeiboServiceImpl implements WeiboService {
         weiboVO.setId(weibo.getId());
         weiboVO.setUserId(weibo.getUserId());
         weiboVO.setContent(weibo.getContent());
-        weiboVO.setImages(StringUtils.hasText(weibo.getImages()) ? 
-                JSONUtil.toList(weibo.getImages(), String.class) : List.of());
+        weiboVO.setImages(weibo.getImages() != null ? weibo.getImages() : List.of());
         weiboVO.setRepostCount(weibo.getRepostCount());
         weiboVO.setCommentCount(weibo.getCommentCount());
         weiboVO.setLikeCount(weibo.getLikeCount());
