@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Avatar, Button, Space, Tabs, message, Modal } from 'antd';
+import { Avatar, Button, Space, Tabs, message, Modal, Card } from 'antd';
 import {
-  HomeOutlined,
   UserOutlined,
   LikeOutlined,
   LikeFilled,
@@ -20,8 +19,6 @@ import './UserProfile.css';
 
 dayjs.extend(relativeTime);
 dayjs.locale('zh-cn');
-
-const { Header, Content } = Layout;
 
 const UserProfile = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -132,128 +129,149 @@ const UserProfile = () => {
   const isCurrentUser = currentUser?.id === profileUser.id;
 
   return (
-    <Layout className="app-container">
-      <Header className="app-header">
-        <div className="header-content">
-          <a href="/" className="logo">微博</a>
-          <Button icon={<HomeOutlined />} onClick={() => navigate('/')}>
-            返回首页
-          </Button>
-        </div>
-      </Header>
+    <div className="user-profile-page">
+      {/* 用户资料头部 */}
+      <Card className="user-profile-header" size="small">
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <Avatar
+            src={profileUser.avatar}
+            icon={<UserOutlined />}
+            size={100}
+            className="profile-avatar"
+            style={{ marginBottom: 16 }}
+          />
+          <h1 className="profile-nickname" style={{ margin: '12px 0 8px', fontSize: 24 }}>
+            {profileUser.nickname}
+          </h1>
+          <div className="profile-username" style={{ color: '#999', marginBottom: 12 }}>
+            @{profileUser.username}
+          </div>
+          {profileUser.introduction && (
+            <div className="profile-introduction" style={{ color: '#666', marginBottom: 16 }}>
+              {profileUser.introduction}
+            </div>
+          )}
+          
+          {!isCurrentUser && (
+            <Button
+              type={isFollowing ? 'default' : 'primary'}
+              loading={followLoading}
+              onClick={handleFollow}
+              size="large"
+              style={{ minWidth: 100 }}
+            >
+              {isFollowing ? '已关注' : '关注'}
+            </Button>
+          )}
 
-      <Content className="profile-content">
-        <div className="profile-container">
-          {/* 用户资料头部 */}
-          <div className="user-profile-header">
-            <Avatar
-              src={profileUser.avatar}
-              icon={<UserOutlined />}
-              size={100}
-              className="profile-avatar"
-            />
-            <h1 className="profile-nickname">{profileUser.nickname}</h1>
-            <div className="profile-username">@{profileUser.username}</div>
-            {profileUser.introduction && (
-              <div className="profile-introduction">{profileUser.introduction}</div>
-            )}
-            
-            {!isCurrentUser && (
-              <Button
-                type={isFollowing ? 'default' : 'primary'}
-                loading={followLoading}
-                onClick={handleFollow}
-                size="large"
-              >
-                {isFollowing ? '已关注' : '关注'}
-              </Button>
-            )}
-
-            <div className="profile-stats">
-              <div className="stat-item">
-                <div className="stat-value">{profileUser.weiboCount || 0}</div>
-                <div className="stat-label">微博</div>
+          <div className="profile-stats" style={{ display: 'flex', justifyContent: 'center', gap: 32, marginTop: 24, paddingTop: 24, borderTop: '1px solid #f0f0f0' }}>
+            <div className="stat-item" style={{ textAlign: 'center' }}>
+              <div className="stat-value" style={{ fontSize: 20, fontWeight: 600 }}>
+                {profileUser.weiboCount || 0}
               </div>
-              <div className="stat-item">
-                <div className="stat-value">{profileUser.followingCount || 0}</div>
-                <div className="stat-label">关注</div>
+              <div className="stat-label" style={{ color: '#999', fontSize: 12 }}>微博</div>
+            </div>
+            <div className="stat-item" style={{ textAlign: 'center' }}>
+              <div className="stat-value" style={{ fontSize: 20, fontWeight: 600 }}>
+                {profileUser.followingCount || 0}
               </div>
-              <div className="stat-item">
-                <div className="stat-value">{profileUser.followerCount || 0}</div>
-                <div className="stat-label">粉丝</div>
+              <div className="stat-label" style={{ color: '#999', fontSize: 12 }}>关注</div>
+            </div>
+            <div className="stat-item" style={{ textAlign: 'center' }}>
+              <div className="stat-value" style={{ fontSize: 20, fontWeight: 600 }}>
+                {profileUser.followerCount || 0}
               </div>
+              <div className="stat-label" style={{ color: '#999', fontSize: 12 }}>粉丝</div>
             </div>
           </div>
+        </div>
+      </Card>
 
-          {/* 微博列表 */}
-          <div className="profile-weibos">
-            <Tabs
-              defaultActiveKey="weibos"
-              items={[
-                {
-                  key: 'weibos',
-                  label: `微博 (${weibos.length})`,
-                  children: (
-                    <div className="weibo-list">
-                      {weibos.map((weibo) => (
-                        <div key={weibo.id} className="weibo-card">
-                          <div className="weibo-content">{weibo.content}</div>
+      {/* 微博列表 */}
+      <Card className="profile-weibos" size="small" style={{ marginTop: 16 }}>
+        <Tabs
+          defaultActiveKey="weibos"
+          items={[
+            {
+              key: 'weibos',
+              label: `微博 (${weibos.length})`,
+              children: (
+                <div className="weibo-list">
+                  {weibos.map((weibo) => (
+                    <Card key={weibo.id} className="weibo-card" size="small" style={{ marginBottom: 16 }}>
+                      <div className="weibo-content" style={{ marginBottom: 12, lineHeight: 1.6 }}>
+                        {weibo.content}
+                      </div>
 
-                          {weibo.images && weibo.images.length > 0 && (
-                            <div className="weibo-images">
-                              {weibo.images.map((img, index) => (
-                                <img key={index} src={img} alt="" className="weibo-image" />
-                              ))}
-                            </div>
-                          )}
-
-                          <div className="weibo-time">
-                            {dayjs(weibo.createdTime).format('YYYY-MM-DD HH:mm:ss')}
-                          </div>
-
-                          <div className="weibo-footer">
-                            <div
-                              className={`weibo-action ${weibo.isLiked ? 'liked' : ''}`}
-                              onClick={() => handleLike(weibo.id, !!weibo.isLiked)}
-                            >
-                              {weibo.isLiked ? <LikeFilled /> : <LikeOutlined />}
-                              <span>{weibo.likeCount}</span>
-                            </div>
-                            <div className="weibo-action" onClick={() => navigate(`/weibo/${weibo.id}`)}>
-                              <MessageOutlined />
-                              <span>{weibo.commentCount}</span>
-                            </div>
-                            <div className="weibo-action">
-                              <ShareAltOutlined />
-                              <span>{weibo.repostCount}</span>
-                            </div>
-                            {isCurrentUser && (
-                              <div
-                                className="weibo-action"
-                                onClick={() => handleDelete(weibo.id)}
-                              >
-                                <DeleteOutlined />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-
-                      {weibos.length === 0 && !loading && (
-                        <div className="empty-state">
-                          <div className="empty-state-icon">📝</div>
-                          <div>暂无微博</div>
+                      {weibo.images && weibo.images.length > 0 && (
+                        <div className="weibo-images" style={{ display: 'flex', gap: '8px', marginBottom: 12, flexWrap: 'wrap' }}>
+                          {weibo.images.map((img, index) => (
+                            <img 
+                              key={index} 
+                              src={img} 
+                              alt="" 
+                              className="weibo-image"
+                              style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 4, cursor: 'pointer' }}
+                            />
+                          ))}
                         </div>
                       )}
+
+                      <div className="weibo-time" style={{ color: '#999', fontSize: 12, marginBottom: 12 }}>
+                        {dayjs(weibo.createdTime).format('YYYY-MM-DD HH:mm:ss')}
+                      </div>
+
+                      <div className="weibo-footer" style={{ display: 'flex', justifyContent: 'space-around', paddingTop: 12, borderTop: '1px solid #f0f0f0' }}>
+                        <div
+                          className={`weibo-action ${weibo.isLiked ? 'liked' : ''}`}
+                          onClick={() => handleLike(weibo.id, !!weibo.isLiked)}
+                          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: weibo.isLiked ? '#ff4d4f' : '#666' }}
+                        >
+                          {weibo.isLiked ? <LikeFilled /> : <LikeOutlined />}
+                          <span>{weibo.likeCount}</span>
+                        </div>
+                        <div 
+                          className="weibo-action" 
+                          onClick={() => navigate(`/weibo/${weibo.id}`)}
+                          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: '#666' }}
+                        >
+                          <MessageOutlined />
+                          <span>{weibo.commentCount}</span>
+                        </div>
+                        <div 
+                          className="weibo-action"
+                          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: '#666' }}
+                        >
+                          <ShareAltOutlined />
+                          <span>{weibo.repostCount}</span>
+                        </div>
+                        {isCurrentUser && (
+                          <div
+                            className="weibo-action"
+                            onClick={() => handleDelete(weibo.id)}
+                            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: '#ff4d4f' }}
+                          >
+                            <DeleteOutlined />
+                            <span>删除</span>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  ))}
+
+                  {weibos.length === 0 && !loading && (
+                    <div className="empty-state" style={{ textAlign: 'center', padding: 40 }}>
+                      <div className="empty-state-icon" style={{ fontSize: 48, marginBottom: 12 }}>📝</div>
+                      <div style={{ color: '#999' }}>暂无微博</div>
                     </div>
-                  ),
-                },
-              ]}
-            />
-          </div>
-        </div>
-      </Content>
-    </Layout>
+                  )}
+                </div>
+              ),
+            },
+          ]}
+        />
+      </Card>
+    </div>
   );
 };
 
