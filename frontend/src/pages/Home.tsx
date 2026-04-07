@@ -1,29 +1,27 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout, Menu, Avatar, Dropdown, Space, Button, Input, message, Modal } from 'antd';
+import { Avatar, Dropdown, Space, Button, Input, message, Modal, Card } from 'antd';
 import {
-  HomeOutlined,
-  UserOutlined,
-  LogoutOutlined,
   MoreOutlined,
   DeleteOutlined,
   LikeOutlined,
   LikeFilled,
   MessageOutlined,
   ShareAltOutlined,
+  SendOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
-import { getCurrentUser, logout } from '../api/auth';
-import { getWeiboList, deleteWeibo, likeWeibo, unlikeWeibo, type Weibo } from '../api/weibo';
+import { getCurrentUser } from '../api/auth';
+import { getWeiboList, deleteWeibo, likeWeibo, unlikeWeibo, publishWeibo, type Weibo } from '../api/weibo';
 import { getUserInfo, type User } from '../api/user';
 import './Home.css';
 
 dayjs.extend(relativeTime);
 dayjs.locale('zh-cn');
 
-const { Header, Content } = Layout;
 const { TextArea } = Input;
 
 const Home = () => {
@@ -53,7 +51,7 @@ const Home = () => {
     setLoading(true);
     try {
       const data = await getWeiboList();
-      setWeibos(data.records);
+      setWeibos(data.records || []);
     } catch (error) {
       console.error('加载微博失败:', error);
     } finally {
@@ -69,11 +67,14 @@ const Home = () => {
 
     setPublishing(true);
     try {
-      // TODO: 调用发布微博 API
+      await publishWeibo({
+        title: '新鲜事',
+        content: publishContent,
+      });
       message.success('发布成功');
       setPublishContent('');
       loadWeibos();
-    } catch (error) {
+    } catch (error: any) {
       console.error('发布失败:', error);
     } finally {
       setPublishing(false);
@@ -109,78 +110,54 @@ const Home = () => {
     });
   };
 
-  const handleLogout = () => {
-    Modal.confirm({
-      title: '确认退出',
-      content: '确定要退出登录吗？',
-      onOk: () => {
-        logout();
-        navigate('/login');
-      },
-    });
-  };
-
-  const userMenu = (
-    <Menu>
-      <Menu.Item key="profile" onClick={() => navigate(`/user/${currentUser?.id}`)}>
-        <UserOutlined /> 个人主页
-      </Menu.Item>
-      <Menu.Item key="logout" onClick={handleLogout}>
-        <LogoutOutlined /> 退出登录
-      </Menu.Item>
-    </Menu>
-  );
-
-  const weiboMenu = (weibo: Weibo) => (
-    <Menu>
-      {currentUser?.id === weibo.userId && (
-        <Menu.Item key="delete" onClick={() => handleDelete(weibo.id)} danger>
-          <DeleteOutlined /> 删除
-        </Menu.Item>
-      )}
-    </Menu>
-  );
+  const weiboMenu = (weibo: Weibo) => ({
+    items: currentUser?.id === weibo.userId
+      ? [{ key: 'delete', icon: <DeleteOutlined />, label: '删除', danger: true, onClick: () => handleDelete(weibo.id) }]
+      : [],
+  });
 
   return (
-    <Layout className="app-container">
-      <Header className="app-header">
-        <div className="header-content">
-          <a href="/" className="logo">微博</a>
-          <div className="header-right">
-            {currentUser && (
-              <Dropdown overlay={userMenu} trigger={['click']}>
-                <Space className="user-dropdown" style={{ cursor: 'pointer' }}>
-                  <Avatar src={currentUser.avatar} icon={<UserOutlined />} />
-                  <span>{currentUser.nickname}</span>
-                </Space>
-              </Dropdown>
-            )}
+    <div className="home-container">
+      {/* 发布框 */}
+      <Card className="publish-box" size="small">
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <Avatar 
+            src={currentUser?.avatar} 
+            icon={<UserOutlined />} 
+            size={48}
+            onClick={() => navigate(`/user/${currentUser?.id}`)}
+            style={{ cursor: 'pointer' }}
+          />
+          <div style={{ flex: 1 }}>
+            <TextArea
+              value={publishContent}
+              onChange={(e) => setPublishContent(e.target.value)}
+              placeholder="有什么新鲜事想和大家分享？"
+              autoSize={{ minRows: 3, maxRows: 6 }}
+              style={{ resize: 'none' }}
+            />
+            <div style={{ textAlign: 'right', marginTop: 12 }}>
+              <Button type="primary" icon={<SendOutlined />} onClick={handlePublish} loading={publishing}>
+                发布
+              </Button>
+            </div>
           </div>
         </div>
-      </Header>
+      </Card>
 
-      <Content className="main-content">
-        <div className="main-layout">
-          <div className="main-feed">
-            {/* 发布框 */}
-            <div className="publish-box">
-              <TextArea
-                value={publishContent}
-                onChange={(e) => setPublishContent(e.target.value)}
-                placeholder="有什么新鲜事想和大家分享？"
-                autoSize={{ minRows: 3, maxRows: 6 }}
-              />
-              <div style={{ textAlign: 'right', marginTop: 12 }}>
-                <Button type="primary" onClick={handlePublish} loading={publishing}>
-                  发布
-                </Button>
-              </div>
-            </div>
-
-            {/* 微博列表 */}
-            {weibos.map((weibo) => (
-              <div key={weibo.id} className="weibo-card">
-                <div className="weibo-header">
+      {/* 微博列表 */}
+      <div className="weibo-list">
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px' }}>加载中...</div>
+        ) : weibos.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+            暂无微博，快来发布第一条吧！
+          </div>
+        ) : (
+          weibos.map((weibo) => (
+            <Card key={weibo.id} className="weibo-card" size="small">
+              <div className="weibo-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                   <Avatar
                     src={weibo.user?.avatar}
                     icon={<UserOutlined />}
@@ -188,68 +165,77 @@ const Home = () => {
                     onClick={() => navigate(`/user/${weibo.userId}`)}
                     style={{ cursor: 'pointer' }}
                   />
-                  <div className="user-info">
-                    <div className="user-nickname">{weibo.user?.nickname}</div>
-                    <div className="user-username">@{weibo.user?.username}</div>
+                  <div>
+                    <div 
+                      className="user-nickname" 
+                      style={{ fontWeight: 'bold', cursor: 'pointer' }}
+                      onClick={() => navigate(`/user/${weibo.userId}`)}
+                    >
+                      {weibo.user?.nickname}
+                    </div>
+                    <div className="user-username" style={{ color: '#999', fontSize: '12px' }}>
+                      @{weibo.user?.username}
+                    </div>
                   </div>
-                  <div className="weibo-time">{dayjs(weibo.createdTime).fromNow()}</div>
-                  <Dropdown menu={{ items: [{ key: 'more', icon: <MoreOutlined />, label: '更多', menu: weiboMenu(weibo) }] }} trigger={['click']}>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ color: '#999', fontSize: '12px' }}>
+                    {dayjs(weibo.createdTime).fromNow()}
+                  </span>
+                  <Dropdown menu={weiboMenu(weibo)} trigger={['click']} placement="bottomRight">
                     <Button type="text" icon={<MoreOutlined />} />
                   </Dropdown>
                 </div>
+              </div>
 
-                <div className="weibo-content">{weibo.content}</div>
+              <div className="weibo-content" style={{ marginTop: 12, lineHeight: 1.6 }}>
+                {weibo.content}
+              </div>
 
-                {weibo.images && weibo.images.length > 0 && (
-                  <div className="weibo-images">
-                    {weibo.images.map((img, index) => (
-                      <img key={index} src={img} alt="" className="weibo-image" />
-                    ))}
-                  </div>
-                )}
+              {weibo.images && weibo.images.length > 0 && (
+                <div className="weibo-images" style={{ display: 'flex', gap: '8px', marginTop: 12, flexWrap: 'wrap' }}>
+                  {weibo.images.map((img, index) => (
+                    <img 
+                      key={index} 
+                      src={img} 
+                      alt="" 
+                      className="weibo-image"
+                      style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer' }}
+                    />
+                  ))}
+                </div>
+              )}
 
-                <div className="weibo-footer">
-                  <div
-                    className={`weibo-action ${weibo.isLiked ? 'liked' : ''}`}
-                    onClick={() => handleLike(weibo.id, !!weibo.isLiked)}
-                  >
-                    {weibo.isLiked ? <LikeFilled /> : <LikeOutlined />}
-                    <span>{weibo.likeCount}</span>
-                  </div>
-                  <div className="weibo-action" onClick={() => navigate(`/weibo/${weibo.id}`)}>
-                    <MessageOutlined />
-                    <span>{weibo.commentCount}</span>
-                  </div>
-                  <div className="weibo-action">
-                    <ShareAltOutlined />
-                    <span>{weibo.repostCount}</span>
-                  </div>
+              <div className="weibo-footer" style={{ display: 'flex', justifyContent: 'space-around', marginTop: 16, paddingTop: 16, borderTop: '1px solid #f0f0f0' }}>
+                <div
+                  className={`weibo-action ${weibo.isLiked ? 'liked' : ''}`}
+                  onClick={() => handleLike(weibo.id, !!weibo.isLiked)}
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: weibo.isLiked ? '#ff4d4f' : '#666' }}
+                >
+                  {weibo.isLiked ? <LikeFilled /> : <LikeOutlined />}
+                  <span>{weibo.likeCount}</span>
+                </div>
+                <div 
+                  className="weibo-action" 
+                  onClick={() => navigate(`/weibo/${weibo.id}`)}
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: '#666' }}
+                >
+                  <MessageOutlined />
+                  <span>{weibo.commentCount}</span>
+                </div>
+                <div 
+                  className="weibo-action"
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: '#666' }}
+                >
+                  <ShareAltOutlined />
+                  <span>{weibo.repostCount}</span>
                 </div>
               </div>
-            ))}
-
-            {weibos.length === 0 && !loading && (
-              <div className="empty-state">
-                <div className="empty-state-icon">📝</div>
-                <div>暂无微博，快来发布第一条吧！</div>
-              </div>
-            )}
-          </div>
-
-          {/* 侧边栏 */}
-          <div className="sidebar">
-            <div className="sidebar-card">
-              <div className="sidebar-title">热门话题</div>
-              <div className="hot-topics">
-                <div className="topic-item">#今天天气真好#</div>
-                <div className="topic-item">#美食分享#</div>
-                <div className="topic-item">#程序员日常#</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Content>
-    </Layout>
+            </Card>
+          ))
+        )}
+      </div>
+    </div>
   );
 };
 

@@ -6,6 +6,7 @@ import Register from './pages/Register';
 import Home from './pages/Home';
 import WeiboDetail from './pages/WeiboDetail';
 import UserProfile from './pages/UserProfile';
+import AppLayout from './components/AppLayout';
 import './App.css';
 
 // 检查是否登录
@@ -23,13 +24,18 @@ function App() {
     <ConfigProvider locale={zhCN}>
       <BrowserRouter>
         <Routes>
+          {/* 公开页面 - 不使用布局 */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          
+          {/* 需要登录的页面 - 使用布局 */}
           <Route
             path="/"
             element={
               <ProtectedRoute>
-                <Home />
+                <AppLayout>
+                  <Home />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
@@ -37,7 +43,9 @@ function App() {
             path="/weibo/:weiboId"
             element={
               <ProtectedRoute>
-                <WeiboDetail />
+                <AppLayout>
+                  <WeiboDetail />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
@@ -45,7 +53,9 @@ function App() {
             path="/user/:userId"
             element={
               <ProtectedRoute>
-                <UserProfile />
+                <AppLayout>
+                  <UserProfile />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
