@@ -8,7 +8,6 @@ export const getImageUrl = (path: string): string => {
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path;
   }
-  // 否则拼接后端基础 URL
-  const baseUrl = API_BASE_URL.replace('/api/v1', '');
-  return `${baseUrl}${path}`;
+  // 否则拼接后端基础 URL（包含 /api/v1）
+  return `${API_BASE_URL}${path}`;
 };

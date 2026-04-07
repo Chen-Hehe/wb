@@ -7,13 +7,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // API 请求代理到后端
+      // API 请求代理到后端（包括 /api/v1/uploads）
       '/api': {
-        target: 'http://localhost:8084',
-        changeOrigin: true,
-      },
-      // 图片上传文件代理到后端
-      '/uploads': {
         target: 'http://localhost:8084',
         changeOrigin: true,
       },

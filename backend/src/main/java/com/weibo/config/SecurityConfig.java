@@ -37,6 +37,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/users/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/weibos/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/comments/**").permitAll()
+                // 静态资源 - 无需鉴权
+                .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
                 // 其他接口需要鉴权
