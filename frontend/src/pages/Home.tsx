@@ -22,6 +22,7 @@ import { getWeiboList, deleteWeibo, likeWeibo, unlikeWeibo, publishWeibo, type W
 import { getUserInfo, type User } from '../api/user';
 import { uploadImage } from '../api/upload';
 import { getImageUrl } from '../config';
+import request from '../utils/request';
 import './Home.css';
 
 dayjs.extend(relativeTime);
@@ -47,7 +48,24 @@ const Home = () => {
 
   const loadCurrentUser = async () => {
     try {
-      const user = await getCurrentUser();
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('未登录，跳过加载用户信息');
+        return;
+      }
+      
+      // 先尝试从 localStorage 读取
+      const cachedUser = getCurrentUser();
+      if (cachedUser) {
+        console.log('从缓存加载用户:', cachedUser);
+        setCurrentUser(cachedUser);
+        return;
+      }
+      
+      // 从 API 获取用户信息
+      console.log('从 API 获取用户信息...');
+      const user = await request.get('/users/current');
+      console.log('获取到用户信息:', user);
       setCurrentUser(user);
       localStorage.setItem('user', JSON.stringify(user));
     } catch (error) {
