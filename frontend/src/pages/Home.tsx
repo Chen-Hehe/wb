@@ -47,34 +47,26 @@ const Home = () => {
   }, []);
 
   const loadCurrentUser = async () => {
-    console.log('开始加载当前用户信息...');
-    try {
-      const token = localStorage.getItem('token');
-      console.log('Token:', token ? '存在' : '不存在');
-      
-      if (!token) {
-        console.log('未登录，跳过加载用户信息');
-        return;
-      }
-      
-      // 先尝试从 localStorage 读取
-      const cachedUser = getCurrentUser();
-      console.log('缓存用户:', cachedUser);
-      
-      if (cachedUser) {
-        console.log('从缓存加载用户:', cachedUser);
-        setCurrentUser(cachedUser);
-        return;
-      }
-      
-      // 从 API 获取用户信息
-      console.log('从 API 获取用户信息...');
-      const user = await request.get('/users/current');
-      console.log('获取到用户信息:', user);
+    // 直接从 localStorage 读取用户信息
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      console.log('从 localStorage 加载用户:', user);
       setCurrentUser(user);
-      localStorage.setItem('user', JSON.stringify(user));
-    } catch (error) {
-      console.error('获取用户信息失败:', error);
+      return;
+    }
+    
+    // 如果没有缓存，尝试从 API 获取
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const user = await request.get('/users/current');
+        console.log('从 API 获取用户:', user);
+        setCurrentUser(user);
+        localStorage.setItem('user', JSON.stringify(user));
+      } catch (error) {
+        console.error('获取用户信息失败:', error);
+      }
     }
   };
 
