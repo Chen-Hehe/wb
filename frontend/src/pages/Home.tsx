@@ -159,11 +159,15 @@ const Home = () => {
     });
   };
 
-  const weiboMenu = (weibo: Weibo) => ({
-    items: currentUser?.id === weibo.userId
-      ? [{ key: 'delete', icon: <DeleteOutlined />, label: '删除', danger: true, onClick: () => handleDelete(weibo.id) }]
-      : [],
-  });
+  const weiboMenu = (weibo: Weibo) => {
+    const canDelete = currentUser?.id === weibo.userId;
+    console.log('微博 ID:', weibo.id, '当前用户 ID:', currentUser?.id, '微博用户 ID:', weibo.userId, '可否删除:', canDelete);
+    return {
+      items: canDelete
+        ? [{ key: 'delete', icon: <DeleteOutlined />, label: '删除', danger: true, onClick: () => handleDelete(weibo.id) }]
+        : [],
+    };
+  };
 
   return (
     <div className="home-container">
