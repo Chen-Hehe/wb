@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Form, Input, Button, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { login, getCurrentUser } from '../api/auth';
+import { login } from '../api/auth';
+import request from '../utils/request';
 import './Auth.css';
 
 interface LoginFormValues {
@@ -20,14 +21,15 @@ const Login = () => {
       const token = await login(values);
       localStorage.setItem('token', token);
       
-      // 获取用户信息并保存
-      const user = await getCurrentUser();
+      // 从 API 获取用户信息并保存
+      const user = await request.get('/users/current');
       localStorage.setItem('user', JSON.stringify(user));
       
       message.success('登录成功');
       navigate('/');
     } catch (error: any) {
       console.error('登录失败:', error);
+      message.error(error.message || '登录失败');
     } finally {
       setLoading(false);
     }
