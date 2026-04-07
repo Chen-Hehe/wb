@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Avatar, Button, Input, Space, message, Modal } from 'antd';
+import { Avatar, Button, Input, Space, message, Modal, Card } from 'antd';
 import {
-  HomeOutlined,
   UserOutlined,
   LikeOutlined,
   LikeFilled,
   MessageOutlined,
   ShareAltOutlined,
   DeleteOutlined,
-  MoreOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -23,7 +21,6 @@ import './WeiboDetail.css';
 dayjs.extend(relativeTime);
 dayjs.locale('zh-cn');
 
-const { Header, Content } = Layout;
 const { TextArea } = Input;
 
 const WeiboDetail = () => {
@@ -156,135 +153,160 @@ const WeiboDetail = () => {
   }
 
   return (
-    <Layout className="app-container">
-      <Header className="app-header">
-        <div className="header-content">
-          <a href="/" className="logo">微博</a>
-          <Button icon={<HomeOutlined />} onClick={() => navigate('/')}>
-            返回首页
-          </Button>
-        </div>
-      </Header>
-
-      <Content className="detail-content">
-        <div className="detail-container">
-          {/* 微博详情 */}
-          <div className="weibo-detail-card">
-            <div className="weibo-header">
-              <Avatar
-                src={weibo.user?.avatar}
-                icon={<UserOutlined />}
-                size={48}
-                onClick={() => navigate(`/user/${weibo.userId}`)}
-                style={{ cursor: 'pointer' }}
-              />
-              <div className="user-info">
-                <div className="user-nickname">{weibo.user?.nickname}</div>
-                <div className="user-username">@{weibo.user?.username}</div>
-              </div>
-              <div className="weibo-time">{dayjs(weibo.createdTime).format('YYYY-MM-DD HH:mm:ss')}</div>
-              {currentUser?.id === weibo.userId && (
-                <Button type="text" danger icon={<DeleteOutlined />} onClick={handleDeleteWeibo} />
-              )}
+    <div className="weibo-detail-page">
+      {/* 微博详情 */}
+      <Card className="weibo-detail-card" size="small">
+        <div className="weibo-header">
+          <Avatar
+            src={weibo.user?.avatar}
+            icon={<UserOutlined />}
+            size={48}
+            onClick={() => navigate(`/user/${weibo.userId}`)}
+            style={{ cursor: 'pointer' }}
+          />
+          <div className="user-info">
+            <div 
+              className="user-nickname" 
+              style={{ cursor: 'pointer' }}
+              onClick={() => navigate(`/user/${weibo.userId}`)}
+            >
+              {weibo.user?.nickname}
             </div>
-
-            <div className="weibo-content">{weibo.content}</div>
-
-            {weibo.images && weibo.images.length > 0 && (
-              <div className="weibo-images">
-                {weibo.images.map((img, index) => (
-                  <img key={index} src={img} alt="" className="weibo-image" />
-                ))}
-              </div>
-            )}
-
-            <div className="weibo-stats">
-              <span>转发 {weibo.repostCount}</span>
-              <span>评论 {weibo.commentCount}</span>
-              <span>点赞 {weibo.likeCount}</span>
-            </div>
-
-            <div className="weibo-actions">
-              <Button
-                icon={weibo.isLiked ? <LikeFilled /> : <LikeOutlined />}
-                onClick={handleLike}
-                className={weibo.isLiked ? 'liked' : ''}
-              >
-                点赞
-              </Button>
-              <Button icon={<MessageOutlined />}>评论</Button>
-              <Button icon={<ShareAltOutlined />}>转发</Button>
-            </div>
+            <div className="user-username">@{weibo.user?.username}</div>
           </div>
+          <div className="weibo-time">{dayjs(weibo.createdTime).format('YYYY-MM-DD HH:mm:ss')}</div>
+          {currentUser?.id === weibo.userId && (
+            <Button 
+              type="text" 
+              danger 
+              icon={<DeleteOutlined />} 
+              onClick={handleDeleteWeibo}
+            >
+              删除
+            </Button>
+          )}
+        </div>
 
-          {/* 评论区 */}
-          <div className="comment-section">
-            <div className="comment-title">评论 ({comments.length})</div>
+        <div className="weibo-content" style={{ marginTop: 16, fontSize: 16, lineHeight: 1.6 }}>
+          {weibo.content}
+        </div>
 
-            {/* 发表评论 */}
-            <div className="comment-input-box">
-              <TextArea
-                value={commentContent}
-                onChange={(e) => setCommentContent(e.target.value)}
-                placeholder="写下你的评论..."
-                autoSize={{ minRows: 2, maxRows: 4 }}
+        {weibo.images && weibo.images.length > 0 && (
+          <div className="weibo-images" style={{ display: 'flex', gap: '8px', marginTop: 16, flexWrap: 'wrap' }}>
+            {weibo.images.map((img, index) => (
+              <img 
+                key={index} 
+                src={img} 
+                alt="" 
+                className="weibo-image"
+                style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 4, cursor: 'pointer' }}
               />
-              <div style={{ textAlign: 'right', marginTop: 8 }}>
-                <Button type="primary" onClick={handleAddComment} loading={commenting}>
-                  评论
+            ))}
+          </div>
+        )}
+
+        <div className="weibo-stats" style={{ display: 'flex', gap: 24, marginTop: 16, paddingTop: 16, borderTop: '1px solid #f0f0f0', color: '#666' }}>
+          <span>转发 {weibo.repostCount}</span>
+          <span>评论 {weibo.commentCount}</span>
+          <span>点赞 {weibo.likeCount}</span>
+        </div>
+
+        <div className="weibo-actions" style={{ display: 'flex', justifyContent: 'space-around', marginTop: 16 }}>
+          <Button
+            icon={weibo.isLiked ? <LikeFilled /> : <LikeOutlined />}
+            onClick={handleLike}
+            className={weibo.isLiked ? 'liked' : ''}
+          >
+            点赞
+          </Button>
+          <Button icon={<MessageOutlined />}>评论</Button>
+          <Button icon={<ShareAltOutlined />}>转发</Button>
+        </div>
+      </Card>
+
+      {/* 评论区 */}
+      <Card className="comment-section" size="small" style={{ marginTop: 16 }}>
+        <div className="comment-title" style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 16 }}>
+          评论 ({comments.length})
+        </div>
+
+        {/* 发表评论 */}
+        <div className="comment-input-box" style={{ marginBottom: 16 }}>
+          <TextArea
+            value={commentContent}
+            onChange={(e) => setCommentContent(e.target.value)}
+            placeholder="写下你的评论..."
+            autoSize={{ minRows: 2, maxRows: 4 }}
+            style={{ resize: 'none' }}
+          />
+          <div style={{ textAlign: 'right', marginTop: 8 }}>
+            <Button type="primary" onClick={handleAddComment} loading={commenting}>
+              评论
+            </Button>
+          </div>
+        </div>
+
+        {/* 评论列表 */}
+        <div className="comment-list">
+          {comments.map((comment) => (
+            <div key={comment.id} className="comment-item" style={{ padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+              <div className="comment-header" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <Avatar
+                  src={comment.user?.avatar}
+                  icon={<UserOutlined />}
+                  size={32}
+                  onClick={() => navigate(`/user/${comment.userId}`)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <div className="comment-user-info" style={{ flex: 1 }}>
+                  <div 
+                    className="comment-user-nickname" 
+                    style={{ fontWeight: 500, cursor: 'pointer' }}
+                    onClick={() => navigate(`/user/${comment.userId}`)}
+                  >
+                    {comment.user?.nickname}
+                  </div>
+                  <div className="comment-time" style={{ fontSize: 12, color: '#999' }}>
+                    {dayjs(comment.createdTime).fromNow()}
+                  </div>
+                </div>
+                {currentUser?.id === comment.userId && (
+                  <Button
+                    type="text"
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleDeleteComment(comment.id)}
+                  >
+                    删除
+                  </Button>
+                )}
+              </div>
+              <div className="comment-content" style={{ marginLeft: 44, lineHeight: 1.5 }}>
+                {comment.content}
+              </div>
+              <div className="comment-actions" style={{ marginLeft: 44, marginTop: 8 }}>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={comment.isLiked ? <LikeFilled /> : <LikeOutlined />}
+                  onClick={() => handleLikeComment(comment.id, !!comment.isLiked)}
+                  className={comment.isLiked ? 'liked' : ''}
+                >
+                  {comment.likeCount}
                 </Button>
               </div>
             </div>
+          ))}
 
-            {/* 评论列表 */}
-            <div className="comment-list">
-              {comments.map((comment) => (
-                <div key={comment.id} className="comment-item">
-                  <div className="comment-header">
-                    <Avatar
-                      src={comment.user?.avatar}
-                      icon={<UserOutlined />}
-                      size={32}
-                      onClick={() => navigate(`/user/${comment.userId}`)}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    <div className="comment-user-info">
-                      <div className="comment-user-nickname">{comment.user?.nickname}</div>
-                      <div className="comment-time">{dayjs(comment.createdTime).fromNow()}</div>
-                    </div>
-                    {currentUser?.id === comment.userId && (
-                      <Button
-                        type="text"
-                        size="small"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={() => handleDeleteComment(comment.id)}
-                      />
-                    )}
-                  </div>
-                  <div className="comment-content">{comment.content}</div>
-                  <div className="comment-actions">
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={comment.isLiked ? <LikeFilled /> : <LikeOutlined />}
-                      onClick={() => handleLikeComment(comment.id, !!comment.isLiked)}
-                      className={comment.isLiked ? 'liked' : ''}
-                    >
-                      {comment.likeCount}
-                    </Button>
-                  </div>
-                </div>
-              ))}
-
-              {comments.length === 0 && (
-                <div className="empty-comments">暂无评论，快来抢沙发吧！</div>
-              )}
+          {comments.length === 0 && (
+            <div className="empty-comments" style={{ textAlign: 'center', padding: 40, color: '#999' }}>
+              暂无评论，快来抢沙发吧！
             </div>
-          </div>
+          )}
         </div>
-      </Content>
-    </Layout>
+      </Card>
+    </div>
   );
 };
 
