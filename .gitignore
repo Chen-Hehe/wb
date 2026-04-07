@@ -1,0 +1,11 @@
+frontend/node_modules/
+backend/target/
+backend/logs/
+backend/logs/*
+backend/logs/**/*
+backend/logs/**/**/*
+backend/logs/**/**/**/*
+backend/logs/**/**/**/**/*
+backend/logs/**/**/**/**/**/*
+backend/logs/**/**/**/**/**/**/*
+backend/logs/**/**/**/**/**/**/**/*

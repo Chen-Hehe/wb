@@ -1,0 +1,159 @@
+.profile-content {
+  padding: 16px;
+  background: #f5f5f5;
+  min-height: calc(100vh - 64px);
+}
+
+.profile-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.user-profile-header {
+  background: #fff;
+  border-radius: 8px;
+  padding: 32px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.profile-avatar {
+  margin-bottom: 16px;
+}
+
+.profile-nickname {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.profile-username {
+  color: #999;
+  margin-bottom: 16px;
+}
+
+.profile-introduction {
+  color: #666;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.profile-stats {
+  display: flex;
+  justify-content: center;
+  gap: 48px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+}
+
+.profile-weibos {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.weibo-list {
+  min-height: 200px;
+}
+
+.weibo-card {
+  padding: 16px;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.weibo-card:last-child {
+  border-bottom: none;
+}
+
+.weibo-content {
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.weibo-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.weibo-image {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.weibo-time {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 12px;
+}
+
+.weibo-footer {
+  display: flex;
+  justify-content: space-around;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.weibo-action {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #666;
+  cursor: pointer;
+  transition: color 0.3s;
+  font-size: 14px;
+}
+
+.weibo-action:hover {
+  color: #e6162d;
+}
+
+.weibo-action.liked {
+  color: #e6162d;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+}
+
+.empty-state-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 64px);
+  font-size: 16px;
+  color: #999;
+}
