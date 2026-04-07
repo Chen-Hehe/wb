@@ -47,8 +47,11 @@ const Home = () => {
   }, []);
 
   const loadCurrentUser = async () => {
+    console.log('开始加载当前用户信息...');
     try {
       const token = localStorage.getItem('token');
+      console.log('Token:', token ? '存在' : '不存在');
+      
       if (!token) {
         console.log('未登录，跳过加载用户信息');
         return;
@@ -56,6 +59,8 @@ const Home = () => {
       
       // 先尝试从 localStorage 读取
       const cachedUser = getCurrentUser();
+      console.log('缓存用户:', cachedUser);
+      
       if (cachedUser) {
         console.log('从缓存加载用户:', cachedUser);
         setCurrentUser(cachedUser);
