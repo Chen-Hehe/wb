@@ -30,13 +30,13 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // 公开接口 - 无需鉴权
-                .requestMatchers("/api/v1/auth/**").permitAll()
-                .requestMatchers("/api/v1/users/register").permitAll()
-                .requestMatchers("/api/v1/users/login").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/users/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/weibos/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/comments/**").permitAll()
+                // 公开接口 - 无需鉴权 (注意：context-path 是 /api/v1，所以这里不需要前缀)
+                .requestMatchers("/auth/**").permitAll()
+                .requestMatchers("/users/register").permitAll()
+                .requestMatchers("/users/login").permitAll()
+                .requestMatchers(HttpMethod.GET, "/users/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/weibos/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/comments/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
                 // 其他接口需要鉴权
