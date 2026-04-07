@@ -1,5 +1,5 @@
 // 后端 API 基础 URL
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8083/api/v1';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8084/api/v1';
 
 // 构建完整的图片 URL
 export const getImageUrl = (path: string): string => {
