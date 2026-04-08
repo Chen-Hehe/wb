@@ -21,6 +21,7 @@ import { getCurrentUser } from '../api/auth';
 import { getWeiboList, deleteWeibo, likeWeibo, unlikeWeibo, publishWeibo, type Weibo } from '../api/weibo';
 import { getUserInfo, type User } from '../api/user';
 import { uploadImage } from '../api/upload';
+import { txt2img, uploadImageByUrl } from '../api/ai';
 import { getImageUrl } from '../config';
 import request from '../utils/request';
 import './Home.css';
@@ -40,6 +41,13 @@ const Home = () => {
   const [uploading, setUploading] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // AI 生成图片相关状态
+  const [aiModalVisible, setAiModalVisible] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiTempImageUrl, setAiTempImageUrl] = useState<string>(''); // 临时 URL（阿里云）
+  const [aiLocalUrls, setAiLocalUrls] = useState<string[]>([]); // 转存后的本地 URL 列表
+  const [aiSaving, setAiSaving] = useState(false);
 
   useEffect(() => {
     loadCurrentUser();
@@ -89,7 +97,7 @@ const Home = () => {
   };
 
   const handlePublish = async () => {
-    if (!publishContent.trim() && uploadFiles.length === 0) {
+    if (!publishContent.trim() && uploadFiles.length === 0 && aiLocalUrls.length === 0) {
       message.warning('请输入微博内容或上传图片');
       return;
     }
@@ -98,12 +106,19 @@ const Home = () => {
     try {
       // 上传图片
       let imageUrls: string[] = [];
+      
+      // 上传本地选择的图片
       if (uploadFiles.length > 0) {
         setUploading(true);
         const uploadPromises = uploadFiles.map((file) => uploadImage(file.originFileObj!));
         const results = await Promise.all(uploadPromises);
         imageUrls = results.map((res: any) => res.imgUrl);
         setUploading(false);
+      }
+      
+      // 添加 AI 生成的图片（已经是本地 URL）
+      if (aiLocalUrls.length > 0) {
+        imageUrls = [...imageUrls, ...aiLocalUrls];
       }
 
       // 发布微博
@@ -116,6 +131,7 @@ const Home = () => {
       message.success('发布成功');
       setPublishContent('');
       setUploadFiles([]);
+      setAiLocalUrls([]);
       loadWeibos();
     } catch (error: any) {
       console.error('发布失败:', error);
@@ -143,6 +159,74 @@ const Home = () => {
 
   const handleRemoveImage = (index: number) => {
     setUploadFiles(uploadFiles.filter((_, i) => i !== index));
+  };
+
+  // AI 生成图片
+  const handleAiGenerate = async () => {
+    if (!publishContent.trim()) {
+      message.warning('请先填写微博内容');
+      return;
+    }
+
+    setAiGenerating(true);
+    try {
+      const prompt = `请为我为以下故事生成配图图片，标题：新鲜事，内容：${publishContent}`;
+      const result: any = await txt2img(prompt);
+      
+      if (result.code === 200 && result.data?.imageUrl) {
+        setAiTempImageUrl(result.data.imageUrl);
+        setAiModalVisible(true);
+      } else {
+        message.error(result.message || 'AI 生成失败');
+      }
+    } catch (error: any) {
+      console.error('AI 生成失败:', error);
+      message.error(error.message || 'AI 生成失败，请稍后重试');
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  // 重新生成
+  const handleAiRegenerate = () => {
+    setAiTempImageUrl('');
+    setAiModalVisible(false);
+    handleAiGenerate();
+  };
+
+  // 上传使用
+  const handleAiUse = async () => {
+    if (!aiTempImageUrl) return;
+    
+    setAiSaving(true);
+    try {
+      const result: any = await uploadImageByUrl(aiTempImageUrl);
+      
+      if (result.code === 200 && result.data?.imgUrl) {
+        const localUrl = result.data.imgUrl;
+        setAiLocalUrls([...aiLocalUrls, localUrl]);
+        message.success('图片已添加到发布列表');
+        setAiModalVisible(false);
+        setAiTempImageUrl('');
+      } else {
+        message.error(result.message || '图片转存失败');
+      }
+    } catch (error: any) {
+      console.error('图片转存失败:', error);
+      message.error(error.message || '图片转存失败，请稍后重试');
+    } finally {
+      setAiSaving(false);
+    }
+  };
+
+  const handleAiCancel = () => {
+    setAiModalVisible(false);
+    setAiTempImageUrl('');
+  };
+
+  // 移除 AI 生成的图片
+  const handleRemoveAiImage = (index: number) => {
+    setAiLocalUrls(aiLocalUrls.filter((_, i) => i !== index));
   };
 
   const handleLike = async (weiboId: number, isLiked: boolean) => {
@@ -206,10 +290,11 @@ const Home = () => {
             />
             
             {/* 图片预览 */}
-            {uploadFiles.length > 0 && (
+            {(uploadFiles.length > 0 || aiLocalUrls.length > 0) && (
               <div style={{ display: 'flex', gap: '8px', marginTop: 12, flexWrap: 'wrap' }}>
+                {/* 本地上传的图片 */}
                 {uploadFiles.map((file, index) => (
-                  <div key={index} style={{ position: 'relative', display: 'inline-block' }}>
+                  <div key={`local-${index}`} style={{ position: 'relative', display: 'inline-block' }}>
                     <Image
                       src={URL.createObjectURL(file.originFileObj!)}
                       alt={file.name}
@@ -220,6 +305,33 @@ const Home = () => {
                       size="small"
                       icon={<CloseOutlined />}
                       onClick={() => handleRemoveImage(index)}
+                      style={{
+                        position: 'absolute',
+                        top: -8,
+                        right: -8,
+                        padding: 0,
+                        width: 20,
+                        height: 20,
+                        background: 'rgba(0,0,0,0.5)',
+                        color: '#fff',
+                        borderRadius: '50%',
+                      }}
+                    />
+                  </div>
+                ))}
+                {/* AI 生成的图片 */}
+                {aiLocalUrls.map((url, index) => (
+                  <div key={`ai-${index}`} style={{ position: 'relative', display: 'inline-block' }}>
+                    <Image
+                      src={getImageUrl(url)}
+                      alt="AI 生成"
+                      style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 4 }}
+                    />
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<CloseOutlined />}
+                      onClick={() => handleRemoveAiImage(index)}
                       style={{
                         position: 'absolute',
                         top: -8,
@@ -253,13 +365,23 @@ const Home = () => {
                   }
                 }}
               />
-              <Button 
-                icon={<PictureOutlined />} 
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadFiles.length >= 9}
-              >
-                图片 {uploadFiles.length > 0 && `(${uploadFiles.length}/9)`}
-              </Button>
+              <Space>
+                <Button 
+                  icon={<PictureOutlined />} 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadFiles.length + aiLocalUrls.length >= 9}
+                >
+                  图片 {uploadFiles.length + aiLocalUrls.length > 0 && `(${uploadFiles.length + aiLocalUrls.length}/9)`}
+                </Button>
+                <Button 
+                  icon={<SendOutlined />} 
+                  onClick={handleAiGenerate}
+                  loading={aiGenerating}
+                  disabled={!publishContent.trim() || uploadFiles.length + aiLocalUrls.length >= 9}
+                >
+                  AI 生成图片
+                </Button>
+              </Space>
               <Button 
                 type="primary" 
                 icon={<SendOutlined />} 
@@ -371,6 +493,43 @@ const Home = () => {
           ))
         )}
       </div>
+
+      {/* AI 生成图片预览 Modal */}
+      <Modal
+        title="AI 生成的图片"
+        open={aiModalVisible}
+        onCancel={handleAiCancel}
+        footer={[
+          <Button key="cancel" onClick={handleAiCancel}>
+            取消
+          </Button>,
+          <Button key="regenerate" onClick={handleAiRegenerate} loading={aiGenerating}>
+            重新生成
+          </Button>,
+          <Button 
+            key="use" 
+            type="primary" 
+            onClick={handleAiUse} 
+            loading={aiSaving}
+            disabled={!aiTempImageUrl}
+          >
+            上传使用
+          </Button>,
+        ]}
+        width={600}
+      >
+        <div style={{ textAlign: 'center', minHeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {aiTempImageUrl ? (
+            <img 
+              src={aiTempImageUrl} 
+              alt="AI 生成的图片" 
+              style={{ maxWidth: '100%', maxHeight: 500, borderRadius: 8 }}
+            />
+          ) : (
+            <div style={{ color: '#999' }}>正在生成图片...</div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };

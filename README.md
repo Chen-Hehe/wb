@@ -97,6 +97,7 @@ mvnw.cmd clean compile
 
 # 运行项目
 mvnw.cmd spring-boot:run
+mvn spring-boot:run
 
 # 或者打包后运行
 mvnw.cmd clean package
