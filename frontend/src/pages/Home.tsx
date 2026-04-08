@@ -173,11 +173,12 @@ const Home = () => {
       const prompt = `请为我为以下故事生成配图图片，标题：新鲜事，内容：${publishContent}`;
       const result: any = await txt2img(prompt);
       
-      if (result.code === 200 && result.data?.imageUrl) {
-        setAiTempImageUrl(result.data.imageUrl);
+      // request.ts 拦截器已返回 data，直接访问 imageUrl
+      if (result?.imageUrl) {
+        setAiTempImageUrl(result.imageUrl);
         setAiModalVisible(true);
       } else {
-        message.error(result.message || 'AI 生成失败');
+        message.error('AI 生成失败：未获取到图片地址');
       }
     } catch (error: any) {
       console.error('AI 生成失败:', error);

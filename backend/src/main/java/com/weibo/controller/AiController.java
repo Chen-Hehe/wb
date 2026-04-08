@@ -79,7 +79,13 @@ public class AiController {
                     .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            JsonNode root = objectMapper.readTree(response.body());
+            String responseBody = response.body();
+            log.info("===== 阿里云 API 响应 =====");
+            log.info("状态码：{}", response.statusCode());
+            log.info("响应体：{}", responseBody);
+            log.info("========================");
+            
+            JsonNode root = objectMapper.readTree(responseBody);
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 String message = root.path("message").asText();
@@ -111,12 +117,62 @@ public class AiController {
         }
     }
 
-    private String findFirstImageUrl(JsonNode node) {
+    private String findFirstImageUrl(JsonNode root) {
+        if (root == null || root.isNull()) {
+            return null;
+        }
+
+        // 按照阿里云万相 API 返回结构解析：output.choices[0].message.content[0].image
+        try {
+            JsonNode output = root.get("output");
+            if (output != null && !output.isNull()) {
+                JsonNode choices = output.get("choices");
+                if (choices != null && choices.isArray() && choices.size() > 0) {
+                    JsonNode firstChoice = choices.get(0);
+                    if (firstChoice != null && !firstChoice.isNull()) {
+                        JsonNode message = firstChoice.get("message");
+                        if (message != null && !message.isNull()) {
+                            JsonNode content = message.get("content");
+                            if (content != null && content.isArray() && content.size() > 0) {
+                                JsonNode firstContent = content.get(0);
+                                if (firstContent != null && !firstContent.isNull()) {
+                                    JsonNode imageNode = firstContent.get("image");
+                                    if (imageNode != null && imageNode.isTextual()) {
+                                        String imageUrl = imageNode.asText();
+                                        if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+                                            log.info("成功解析图片 URL: {}", imageUrl);
+                                            return imageUrl;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("解析图片 URL 时发生异常：{}", e.getMessage());
+        }
+
+        // 备用方案：递归查找任意 image 或 url 字段
+        return findImageUrlRecursive(root);
+    }
+
+    private String findImageUrlRecursive(JsonNode node) {
         if (node == null || node.isNull()) {
             return null;
         }
 
         if (node.isObject()) {
+            // 查找 image 字段
+            JsonNode imageNode = node.get("image");
+            if (imageNode != null && imageNode.isTextual()) {
+                String url = imageNode.asText();
+                if (url.startsWith("http://") || url.startsWith("https://")) {
+                    return url;
+                }
+            }
+            // 查找 url 字段
             JsonNode urlNode = node.get("url");
             if (urlNode != null && urlNode.isTextual()) {
                 String url = urlNode.asText();
@@ -124,10 +180,11 @@ public class AiController {
                     return url;
                 }
             }
+            // 递归查找子节点
             var fields = node.fields();
             while (fields.hasNext()) {
                 var entry = fields.next();
-                String result = findFirstImageUrl(entry.getValue());
+                String result = findImageUrlRecursive(entry.getValue());
                 if (StringUtils.hasText(result)) {
                     return result;
                 }
@@ -136,7 +193,7 @@ public class AiController {
 
         if (node.isArray()) {
             for (JsonNode item : node) {
-                String result = findFirstImageUrl(item);
+                String result = findImageUrlRecursive(item);
                 if (StringUtils.hasText(result)) {
                     return result;
                 }

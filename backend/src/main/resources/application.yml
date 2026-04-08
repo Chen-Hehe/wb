@@ -62,4 +62,4 @@ logging:
     com.baomidou.mybatisplus: DEBUG
 
 dashscope:
-  api-key: ${DASHSCOPE_API_KEY:}
+  api-key: sk-b129bd30434042cdb15f251287f01c2c
