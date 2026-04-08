@@ -80,7 +80,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           <Link to="/" style={{ fontSize: '20px', fontWeight: 'bold', color: '#1890ff', textDecoration: 'none' }}>
-            🦞 微博
+              微博
           </Link>
           <Menu
             theme="light"

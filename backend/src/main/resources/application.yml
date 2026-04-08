@@ -60,3 +60,6 @@ logging:
     root: INFO
     com.weibo: DEBUG
     com.baomidou.mybatisplus: DEBUG
+
+dashscope:
+  api-key: ${DASHSCOPE_API_KEY:}
