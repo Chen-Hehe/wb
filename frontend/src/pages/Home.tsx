@@ -203,14 +203,15 @@ const Home = () => {
     try {
       const result: any = await uploadImageByUrl(aiTempImageUrl);
       
-      if (result.code === 200 && result.data?.imgUrl) {
-        const localUrl = result.data.imgUrl;
+      // request.ts 拦截器已返回 data，直接访问 imgUrl
+      if (result?.imgUrl) {
+        const localUrl = result.imgUrl;
         setAiLocalUrls([...aiLocalUrls, localUrl]);
         message.success('图片已添加到发布列表');
         setAiModalVisible(false);
         setAiTempImageUrl('');
       } else {
-        message.error(result.message || '图片转存失败');
+        message.error('图片转存失败：未获取到本地 URL');
       }
     } catch (error: any) {
       console.error('图片转存失败:', error);
