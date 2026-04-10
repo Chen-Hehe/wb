@@ -34,11 +34,14 @@ CREATE TABLE IF NOT EXISTS weibos (
     comment_count INT DEFAULT 0 COMMENT '评论数',
     like_count INT DEFAULT 0 COMMENT '点赞数',
     status TINYINT DEFAULT 1 COMMENT '状态 0-删除 1-正常',
+    wb_pass TINYINT DEFAULT 0 COMMENT '审核状态 0-待审核 1-通过 2-不通过',
+    wb_remark VARCHAR(500) DEFAULT NULL COMMENT '审核备注/不通过原因',
     created_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     INDEX idx_user_id (user_id),
     INDEX idx_created_time (created_time),
     INDEX idx_status (status),
+    INDEX idx_wb_pass (wb_pass),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='微博表';
 

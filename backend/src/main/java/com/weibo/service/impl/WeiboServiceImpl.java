@@ -21,9 +21,15 @@ import com.weibo.service.WeiboService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 
 import java.io.IOException;
 import java.net.URI;
@@ -48,10 +54,14 @@ public class WeiboServiceImpl implements WeiboService {
     private final AttentionMapper attentionMapper;
     private final WeiboLikeMapper weiboLikeMapper;
     private final UserService userService;
+    private final JavaMailSender mailSender;
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     @Value("${dashscope.api-key:${DASHSCOPE_API_KEY:}}")
     private String apiKey;
+    
+    @Value("${spring.mail.username:}")
+    private String mailUsername;
     
     private static final String DASHSCOPE_CHAT_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
     
@@ -62,18 +72,14 @@ public class WeiboServiceImpl implements WeiboService {
             throw BusinessException.of("微博内容或图片不能为空");
         }
         
-        // AI 审核微博内容
-        String title = weibo.getContent().length() > 20 ? weibo.getContent().substring(0, 20) : weibo.getContent();
-        AiCheckResult checkResult = aiCheck(title, weibo.getContent());
-        
         weibo.setUserId(userId);
         weibo.setStatus(1);
         weibo.setRepostCount(0);
         weibo.setCommentCount(0);
         weibo.setLikeCount(0);
-        // 设置审核结果
-        weibo.setPass(checkResult.getIspass());
-        weibo.setRemark(checkResult.getReson());
+        // 设置待审核状态
+        weibo.setPass(0);
+        weibo.setRemark("");
         
         weiboMapper.insert(weibo);
         return getWeiboVO(weibo, userId);
@@ -388,6 +394,50 @@ public class WeiboServiceImpl implements WeiboService {
         }
         
         return null;
+    }
+    
+    /**
+     * 发送审核不通过邮件通知
+     */
+    public void sendAuditFailedMail(Long userId, Weibo weibo, String reason) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            log.warn("用户不存在，无法发送邮件：userId={}", userId);
+            return;
+        }
+        
+        if (!StringUtils.hasText(user.getEmail())) {
+            log.info("用户邮箱为空，跳过邮件发送：userId={}, username={}", userId, user.getUsername());
+            return;
+        }
+        
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            
+            helper.setFrom(mailUsername);
+            helper.setTo(user.getEmail());
+            helper.setSubject("微博审核未通过通知");
+            
+            String content = String.format(
+                "亲爱的 %s：\n\n" +
+                "您发布的微博审核未通过。\n\n" +
+                "微博内容：%s\n\n" +
+                "未通过原因：%s\n\n" +
+                "请修改后重新发布。\n\n" +
+                "微博系统",
+                user.getNickname() != null ? user.getNickname() : user.getUsername(),
+                weibo.getContent().length() > 100 ? weibo.getContent().substring(0, 100) + "..." : weibo.getContent(),
+                reason != null ? reason : "未知原因"
+            );
+            
+            helper.setText(content);
+            mailSender.send(message);
+            
+            log.info("邮件发送成功：userId={}, email={}", userId, user.getEmail());
+        } catch (MessagingException e) {
+            log.error("邮件发送失败：userId={}, email={}, error={}", userId, user.getEmail(), e.getMessage());
+        }
     }
     
     private WeiboVO getWeiboVO(Weibo weibo, Long currentUserId) {

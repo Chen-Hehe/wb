@@ -63,3 +63,25 @@ logging:
 
 dashscope:
   api-key: sk-b129bd30434042cdb15f251287f01c2c
+
+# Email Configuration
+spring:
+  mail:
+    host: ${MAIL_HOST:smtp.qq.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    protocol: smtp
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+# Weibo Audit Configuration
+weibo:
+  audit:
+    fixed-rate: ${WEIBO_AUDIT_RATE:300000}  # 默认 5 分钟
