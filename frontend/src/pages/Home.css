@@ -113,6 +113,18 @@
   background: #fff1f0;
 }
 
+.ai-text-preview {
+  margin-top: 8px;
+}
+
+.ai-text-preview.ant-input {
+  padding: 12px;
+  line-height: 1.7;
+  color: #333;
+  white-space: pre-wrap;
+  background: #fafafa;
+}
+
 /* 响应式 */
 @media (max-width: 768px) {
   .home-container {

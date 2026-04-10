@@ -11,6 +11,16 @@ export const txt2img = (prompt: string) => {
 };
 
 /**
+ * 文案扩写 - 根据 prompt 生成扩写内容
+ * @param prompt 文案内容
+ */
+export const txt2txt = (prompt: string) => {
+  return request.post('/ai/qwen/txt2txt', null, {
+    params: { prompt },
+  });
+};
+
+/**
  * 网络图片转存本地
  * @param url 网络图片 URL
  */

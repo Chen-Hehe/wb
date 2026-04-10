@@ -32,6 +32,7 @@ import java.util.Map;
 public class AiController {
 
     private static final String DASHSCOPE_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
+    private static final String DASHSCOPE_CHAT_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
 
     private final ObjectMapper objectMapper;
 
@@ -84,7 +85,7 @@ public class AiController {
             log.info("状态码：{}", response.statusCode());
             log.info("响应体：{}", responseBody);
             log.info("========================");
-            
+
             JsonNode root = objectMapper.readTree(responseBody);
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
@@ -114,6 +115,81 @@ public class AiController {
             }
             log.error("调用万相文生图失败", e);
             return Result.error("调用 AI 生成图片失败：" + e.getMessage());
+        }
+    }
+
+    @RequestMapping(value = "/qwen/txt2txt", method = {RequestMethod.GET, RequestMethod.POST})
+    public Result<?> txt2txt(@RequestParam("prompt") String prompt) {
+        if (!StringUtils.hasText(prompt)) {
+            return Result.error("prompt 不能为空");
+        }
+        if (!StringUtils.hasText(apiKey)) {
+            return Result.error("未配置 DASHSCOPE_API_KEY");
+        }
+
+        try {
+            HttpClient client = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build();
+
+            Map<String, Object> body = Map.of(
+                    "model", "qwen-plus",
+                    "messages", List.of(
+                            Map.of(
+                                    "role", "system",
+                                    "content", "你是一个优秀的博文作者，擅长对博客博文进行美化和扩写，让读者感到吸引和共鸣，你需要根据用户提供的文案进行扩写并进行美化修饰，返回中文内容，不要有额外的解释，只需要最终内容"
+                            ),
+                            Map.of(
+                                    "role", "user",
+                                    "content", prompt
+                            )
+                    )
+            );
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(DASHSCOPE_CHAT_URL))
+                    .timeout(Duration.ofSeconds(120))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            String responseBody = response.body();
+            log.info("===== 阿里云文案扩写 API 响应 =====");
+            log.info("状态码：{}", response.statusCode());
+            log.info("响应体：{}", responseBody);
+            log.info("================================");
+
+            JsonNode root = objectMapper.readTree(responseBody);
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                String message = root.path("message").asText();
+                if (!StringUtils.hasText(message)) {
+                    message = root.path("error").path("message").asText();
+                }
+                if (!StringUtils.hasText(message)) {
+                    message = root.path("code").asText("AI 文案生成失败");
+                }
+                log.warn("通义文案扩写失败 status={}, body={}", response.statusCode(), responseBody);
+                return Result.error("AI 文案生成失败：" + message);
+            }
+
+            String content = root.path("choices").path(0).path("message").path("content").asText();
+            if (!StringUtils.hasText(content)) {
+                log.warn("通义文案扩写返回内容为空: {}", responseBody);
+                return Result.error("文案生成失败：未获取到有效内容");
+            }
+
+            return Result.success("文案生成成功", content);
+        } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            log.error("调用通义文案扩写失败", e);
+            return Result.error("调用 AI 文案生成失败：" + e.getMessage());
+        } catch (Exception e) {
+            log.error("处理通义文案扩写响应失败", e);
+            return Result.error("AI 文案生成失败：" + e.getMessage());
         }
     }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Avatar, Dropdown, Space, Button, Input, message, Modal, Card, Upload, Image } from 'antd';
+import { Avatar, Dropdown, Space, Button, Input, message, Modal, Card, Image } from 'antd';
 import {
   MoreOutlined,
   DeleteOutlined,
@@ -12,16 +12,16 @@ import {
   UserOutlined,
   PictureOutlined,
   CloseOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import type { UploadFile } from 'antd';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
-import { getCurrentUser } from '../api/auth';
 import { getWeiboList, deleteWeibo, likeWeibo, unlikeWeibo, publishWeibo, type Weibo } from '../api/weibo';
-import { getUserInfo, type User } from '../api/user';
+import { type User } from '../api/user';
 import { uploadImage } from '../api/upload';
-import { txt2img, uploadImageByUrl } from '../api/ai';
+import { txt2img, txt2txt, uploadImageByUrl } from '../api/ai';
 import { getImageUrl } from '../config';
 import request from '../utils/request';
 import './Home.css';
@@ -48,6 +48,11 @@ const Home = () => {
   const [aiTempImageUrl, setAiTempImageUrl] = useState<string>(''); // 临时 URL（阿里云）
   const [aiLocalUrls, setAiLocalUrls] = useState<string[]>([]); // 转存后的本地 URL 列表
   const [aiSaving, setAiSaving] = useState(false);
+
+  // AI 文案扩写相关状态
+  const [aiTextModalVisible, setAiTextModalVisible] = useState(false);
+  const [aiTextGenerating, setAiTextGenerating] = useState(false);
+  const [aiExpandedText, setAiExpandedText] = useState('');
 
   useEffect(() => {
     loadCurrentUser();
@@ -226,6 +231,35 @@ const Home = () => {
     setAiTempImageUrl('');
   };
 
+  // AI 文案扩写
+  const handleAiExpand = async () => {
+    if (!publishContent.trim()) {
+      message.warning('请先填写微博内容');
+      return;
+    }
+
+    setAiTextGenerating(true);
+    try {
+      const result: any = await txt2txt(publishContent);
+      if (result) {
+        setAiExpandedText(result);
+        setAiTextModalVisible(true);
+      } else {
+        message.error('AI 扩写失败：未获取到文案内容');
+      }
+    } catch (error: any) {
+      console.error('AI 扩写失败:', error);
+      message.error(error.message || 'AI 扩写失败，请稍后重试');
+    } finally {
+      setAiTextGenerating(false);
+    }
+  };
+
+  const handleAiTextUse = () => {
+    setPublishContent(aiExpandedText);
+    setAiTextModalVisible(false);
+  };
+
   // 移除 AI 生成的图片
   const handleRemoveAiImage = (index: number) => {
     setAiLocalUrls(aiLocalUrls.filter((_, i) => i !== index));
@@ -374,6 +408,14 @@ const Home = () => {
                   disabled={uploadFiles.length + aiLocalUrls.length >= 9}
                 >
                   图片 {uploadFiles.length + aiLocalUrls.length > 0 && `(${uploadFiles.length + aiLocalUrls.length}/9)`}
+                </Button>
+                <Button
+                  icon={<EditOutlined />}
+                  onClick={handleAiExpand}
+                  loading={aiTextGenerating}
+                  disabled={!publishContent.trim()}
+                >
+                  AI 扩写
                 </Button>
                 <Button 
                   icon={<SendOutlined />} 
@@ -531,6 +573,36 @@ const Home = () => {
             <div style={{ color: '#999' }}>正在生成图片...</div>
           )}
         </div>
+      </Modal>
+
+      <Modal
+        title="AI 扩写"
+        open={aiTextModalVisible}
+        onCancel={() => setAiTextModalVisible(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setAiTextModalVisible(false)}>
+            取消
+          </Button>,
+          <Button key="regenerate" onClick={handleAiExpand} loading={aiTextGenerating}>
+            重新生成
+          </Button>,
+          <Button
+            key="use"
+            type="primary"
+            onClick={handleAiTextUse}
+            disabled={!aiExpandedText}
+          >
+            采用
+          </Button>,
+        ]}
+        width={720}
+      >
+        <Input.TextArea
+          value={aiExpandedText}
+          readOnly
+          autoSize={{ minRows: 8, maxRows: 16 }}
+          className="ai-text-preview"
+        />
       </Modal>
     </div>
   );
