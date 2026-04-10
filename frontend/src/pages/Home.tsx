@@ -21,7 +21,7 @@ import 'dayjs/locale/zh-cn';
 import { getWeiboList, deleteWeibo, likeWeibo, unlikeWeibo, publishWeibo, type Weibo } from '../api/weibo';
 import { type User } from '../api/user';
 import { uploadImage } from '../api/upload';
-import { txt2img, txt2txt, uploadImageByUrl } from '../api/ai';
+import { txt2img, txt2imgAsync, askTaskState, txt2txt, uploadImageByUrl } from '../api/ai';
 import { getImageUrl } from '../config';
 import request from '../utils/request';
 import './Home.css';
@@ -48,6 +48,9 @@ const Home = () => {
   const [aiTempImageUrl, setAiTempImageUrl] = useState<string>(''); // 临时 URL（阿里云）
   const [aiLocalUrls, setAiLocalUrls] = useState<string[]>([]); // 转存后的本地 URL 列表
   const [aiSaving, setAiSaving] = useState(false);
+  const [aiTaskId, setAiTaskId] = useState<string>(''); // 异步任务 ID
+  const [aiPolling, setAiPolling] = useState(false); // 是否正在轮询
+  const aiPollTimerRef = useRef<NodeJS.Timeout | null>(null); // 轮询定时器
 
   // AI 文案扩写相关状态
   const [aiTextModalVisible, setAiTextModalVisible] = useState(false);
@@ -57,6 +60,11 @@ const Home = () => {
   useEffect(() => {
     loadCurrentUser();
     loadWeibos();
+    
+    // 组件卸载时清理轮询定时器
+    return () => {
+      clearPollTimer();
+    };
   }, []);
 
   const loadCurrentUser = async () => {
@@ -166,30 +174,92 @@ const Home = () => {
     setUploadFiles(uploadFiles.filter((_, i) => i !== index));
   };
 
-  // AI 生成图片
+  // 清理轮询定时器
+  const clearPollTimer = () => {
+    if (aiPollTimerRef.current) {
+      window.clearInterval(aiPollTimerRef.current);
+      aiPollTimerRef.current = null;
+    }
+    setAiPolling(false);
+  };
+
+  // 轮询任务状态
+  const pollTaskState = async (taskId: string) => {
+    try {
+      const result: any = await askTaskState(taskId);
+      const taskStatus = result?.task_status;
+      
+      console.log('任务状态:', taskStatus, result);
+      
+      if (taskStatus === 'SUCCEEDED') {
+        // 任务成功
+        clearPollTimer();
+        const imageUrl = result?.image_url;
+        if (imageUrl) {
+          setAiTempImageUrl(imageUrl);
+          setAiModalVisible(true);
+          message.success('图片生成成功');
+        } else {
+          message.error('图片生成成功，但未获取到图片地址');
+        }
+        setAiGenerating(false);
+      } else if (taskStatus === 'FAILED') {
+        // 任务失败
+        clearPollTimer();
+        setAiGenerating(false);
+        message.error('图片生成失败');
+      }
+      // 其他状态（PENDING、RUNNING）继续轮询
+    } catch (error: any) {
+      console.error('轮询任务状态失败:', error);
+      // 轮询失败不清除定时器，继续尝试
+    }
+  };
+
+  // AI 生成图片（异步）
   const handleAiGenerate = async () => {
     if (!publishContent.trim()) {
       message.warning('请先填写微博内容');
       return;
     }
 
+    if (aiPolling) {
+      message.warning('已有任务正在生成中，请稍候');
+      return;
+    }
+
     setAiGenerating(true);
+    setAiPolling(true);
     try {
       const prompt = `请为我为以下故事生成配图图片，标题：新鲜事，内容：${publishContent}`;
-      const result: any = await txt2img(prompt);
       
-      // request.ts 拦截器已返回 data，直接访问 imageUrl
-      if (result?.imageUrl) {
-        setAiTempImageUrl(result.imageUrl);
-        setAiModalVisible(true);
-      } else {
-        message.error('AI 生成失败：未获取到图片地址');
+      // 提交异步任务
+      const result: any = await txt2imgAsync(prompt);
+      const taskId = result;
+      
+      if (!taskId) {
+        message.error('提交任务失败：未获取到 task_id');
+        setAiGenerating(false);
+        setAiPolling(false);
+        return;
       }
+      
+      setAiTaskId(taskId);
+      console.log('任务提交成功，taskId:', taskId);
+      message.info('任务已提交，正在生成图片...');
+      
+      // 开启轮询（每 3 秒查询一次）
+      aiPollTimerRef.current = window.setInterval(() => {
+        pollTaskState(taskId);
+      }, 3000);
+      
+      // 首次立即查询
+      pollTaskState(taskId);
     } catch (error: any) {
-      console.error('AI 生成失败:', error);
-      message.error(error.message || 'AI 生成失败，请稍后重试');
-    } finally {
+      console.error('提交任务失败:', error);
+      clearPollTimer();
       setAiGenerating(false);
+      message.error(error.message || '提交任务失败，请稍后重试');
     }
   };
 
@@ -227,8 +297,10 @@ const Home = () => {
   };
 
   const handleAiCancel = () => {
+    clearPollTimer();
     setAiModalVisible(false);
     setAiTempImageUrl('');
+    setAiGenerating(false);
   };
 
   // AI 文案扩写
@@ -543,6 +615,8 @@ const Home = () => {
         title="AI 生成的图片"
         open={aiModalVisible}
         onCancel={handleAiCancel}
+        maskClosable={false}
+        keyboard={false}
         footer={[
           <Button key="cancel" onClick={handleAiCancel}>
             取消
@@ -579,6 +653,8 @@ const Home = () => {
         title="AI 扩写"
         open={aiTextModalVisible}
         onCancel={() => setAiTextModalVisible(false)}
+        maskClosable={false}
+        keyboard={false}
         footer={[
           <Button key="cancel" onClick={() => setAiTextModalVisible(false)}>
             取消

@@ -33,6 +33,8 @@ public class AiController {
 
     private static final String DASHSCOPE_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
     private static final String DASHSCOPE_CHAT_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
+    private static final String DASHSCOPE_ASYNC_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/image-generation/generation";
+    private static final String DASHSCOPE_TASK_URL = "https://dashscope.aliyuncs.com/api/v1/tasks/";
 
     private final ObjectMapper objectMapper;
 
@@ -115,6 +117,155 @@ public class AiController {
             }
             log.error("调用万相文生图失败", e);
             return Result.error("调用 AI 生成图片失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 异步文生图 - 提交任务
+     */
+    @RequestMapping(value = "/wan/txt2imgAsync", method = {RequestMethod.POST})
+    public Result<?> txt2imgAsync(@RequestBody Map<String, String> body) {
+        String prompt = body != null ? body.get("prompt") : null;
+        if (!StringUtils.hasText(prompt)) {
+            return Result.error("prompt 不能为空");
+        }
+        if (!StringUtils.hasText(apiKey)) {
+            return Result.error("未配置 DASHSCOPE_API_KEY");
+        }
+
+        try {
+            HttpClient client = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build();
+
+            Map<String, Object> requestBody = Map.of(
+                    "model", "wan2.7-image-pro",
+                    "input", Map.of(
+                            "messages", List.of(
+                                    Map.of(
+                                            "role", "user",
+                                            "content", List.of(Map.of("text", prompt))
+                                    )
+                            )
+                    ),
+                    "parameters", Map.of(
+                            "size", "2K",
+                            "n", 1,
+                            "watermark", false,
+                            "thinking_mode", true
+                    )
+            );
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(DASHSCOPE_ASYNC_URL))
+                    .timeout(Duration.ofSeconds(30))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .header("X-DashScope-Async", "enable")
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            String responseBody = response.body();
+            log.info("===== 阿里云异步生图 API 响应 =====");
+            log.info("状态码：{}", response.statusCode());
+            log.info("响应体：{}", responseBody);
+            log.info("================================");
+
+            JsonNode root = objectMapper.readTree(responseBody);
+
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                String message = root.path("message").asText();
+                if (!StringUtils.hasText(message)) {
+                    message = root.path("code").asText("提交任务失败");
+                }
+                log.warn("万相异步生图提交失败 status={}, body={}", response.statusCode(), response.body());
+                return Result.error("提交任务失败：" + message);
+            }
+
+            String taskId = root.path("output").path("task_id").asText();
+            if (!StringUtils.hasText(taskId)) {
+                log.warn("万相异步生图返回中未解析到 task_id: {}", response.body());
+                return Result.error("提交失败：未获取到 task_id");
+            }
+
+            log.info("异步生图任务提交成功，taskId: {}", taskId);
+            return Result.success("任务提交成功", taskId);
+        } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            log.error("调用万相异步生图失败", e);
+            return Result.error("提交任务失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 查询异步任务状态
+     */
+    @RequestMapping(value = "/wan/askstate/{taskid}", method = {RequestMethod.GET})
+    public Result<?> askState(@PathVariable("taskid") String taskId) {
+        if (!StringUtils.hasText(taskId)) {
+            return Result.error("taskId 不能为空");
+        }
+        if (!StringUtils.hasText(apiKey)) {
+            return Result.error("未配置 DASHSCOPE_API_KEY");
+        }
+
+        try {
+            HttpClient client = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build();
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(DASHSCOPE_TASK_URL + taskId))
+                    .timeout(Duration.ofSeconds(30))
+                    .header("Authorization", "Bearer " + apiKey)
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            String responseBody = response.body();
+            log.info("===== 阿里云任务状态查询响应 =====");
+            log.info("状态码：{}", response.statusCode());
+            log.info("响应体：{}", responseBody);
+            log.info("================================");
+
+            JsonNode root = objectMapper.readTree(responseBody);
+
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                String message = root.path("message").asText();
+                if (!StringUtils.hasText(message)) {
+                    message = root.path("code").asText("查询任务失败");
+                }
+                log.warn("查询任务状态失败 status={}, body={}", response.statusCode(), response.body());
+                return Result.error("查询失败：" + message);
+            }
+
+            // 解析任务状态
+            String taskStatus = root.path("output").path("task_status").asText();
+            Map<String, Object> data = new HashMap<>();
+            data.put("task_status", taskStatus);
+            data.put("task_id", taskId);
+
+            // 如果任务成功，解析图片 URL
+            if ("SUCCEEDED".equals(taskStatus)) {
+                String imageUrl = findFirstImageUrl(root);
+                if (StringUtils.hasText(imageUrl)) {
+                    data.put("image_url", imageUrl);
+                    log.info("任务完成，图片 URL: {}", imageUrl);
+                } else {
+                    log.warn("任务成功但未解析到图片 URL: {}", response.body());
+                }
+            }
+
+            return Result.success("查询成功", data);
+        } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            log.error("查询任务状态失败", e);
+            return Result.error("查询失败：" + e.getMessage());
         }
     }
 
