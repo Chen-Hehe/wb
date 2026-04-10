@@ -140,14 +140,18 @@ public class AiController {
                     .connectTimeout(Duration.ofSeconds(10))
                     .build();
 
-            // 异步请求体格式
+            // 异步请求体格式 - 和同步接口一样，使用 input.messages
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", "wan2.7-image-pro");
             
             Map<String, Object> input = new HashMap<>();
-            Map<String, Object> promptObj = new HashMap<>();
-            promptObj.put("prompt", prompt);
-            input.put("prompt", promptObj);
+            List<Map<String, Object>> messages = List.of(
+                Map.of(
+                    "role", "user",
+                    "content", List.of(Map.of("text", prompt))
+                )
+            );
+            input.put("messages", messages);
             requestBody.put("input", input);
             
             Map<String, Object> parameters = new HashMap<>();
