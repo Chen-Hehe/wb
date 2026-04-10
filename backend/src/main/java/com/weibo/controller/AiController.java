@@ -254,6 +254,29 @@ public class AiController {
             data.put("task_status", taskStatus);
             data.put("task_id", taskId);
 
+            // 如果任务失败，返回错误信息
+            if ("FAILED".equals(taskStatus)) {
+                JsonNode output = root.get("output");
+                String errorMessage = null;
+                if (output != null) {
+                    errorMessage = output.path("message").asText();
+                    if (!StringUtils.hasText(errorMessage)) {
+                        errorMessage = output.path("error").path("message").asText();
+                    }
+                    if (!StringUtils.hasText(errorMessage)) {
+                        errorMessage = output.path("error_message").asText();
+                    }
+                }
+                if (!StringUtils.hasText(errorMessage)) {
+                    errorMessage = root.path("message").asText();
+                }
+                if (!StringUtils.hasText(errorMessage)) {
+                    errorMessage = "任务执行失败，请检查 API Key 权限或余额";
+                }
+                data.put("error_message", errorMessage);
+                log.warn("任务失败，taskId={}, error={}", taskId, errorMessage);
+            }
+
             // 如果任务成功，解析图片 URL
             if ("SUCCEEDED".equals(taskStatus)) {
                 String imageUrl = findFirstImageUrl(root);

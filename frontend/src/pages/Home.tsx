@@ -207,7 +207,9 @@ const Home = () => {
         // 任务失败
         clearPollTimer();
         setAiGenerating(false);
-        message.error('图片生成失败');
+        const errorMsg = result?.error_message || '图片生成失败';
+        message.error(`图片生成失败：${errorMsg}`);
+        console.error('任务失败详情:', result);
       }
       // 其他状态（PENDING、RUNNING）继续轮询
     } catch (error: any) {
