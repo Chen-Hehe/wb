@@ -6,6 +6,7 @@ import Register from './pages/Register';
 import Home from './pages/Home';
 import WeiboDetail from './pages/WeiboDetail';
 import UserProfile from './pages/UserProfile';
+import Report from './pages/Report';
 import AppLayout from './components/AppLayout';
 import './App.css';
 
@@ -55,6 +56,16 @@ function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <UserProfile />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/report"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Report />
                 </AppLayout>
               </ProtectedRoute>
             }

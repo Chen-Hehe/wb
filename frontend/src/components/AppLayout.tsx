@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Menu, Avatar, Dropdown, Space, Button, Modal } from 'antd';
-import { HomeOutlined, UserOutlined, LogoutOutlined, LoginOutlined, UserAddOutlined } from '@ant-design/icons';
+import { HomeOutlined, UserOutlined, LogoutOutlined, LoginOutlined, UserAddOutlined, BarChartOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { getCurrentUser, logout } from '../api/auth';
 
@@ -92,6 +92,11 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 key: '/',
                 icon: <HomeOutlined />,
                 label: <Link to="/">首页</Link>,
+              },
+              {
+                key: '/report',
+                icon: <BarChartOutlined />,
+                label: <Link to="/report">报表</Link>,
               },
             ]}
           />

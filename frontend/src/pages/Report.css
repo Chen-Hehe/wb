@@ -1,0 +1,49 @@
+.report-page {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.report-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.input-section {
+  background: #fafafa;
+  padding: 20px;
+  border-radius: 6px;
+}
+
+.chart-section {
+  min-height: 400px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  padding: 20px;
+  background: #fff;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
+}
+
+.empty-chart {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+  .report-page {
+    padding: 12px;
+  }
+  
+  .input-section {
+    padding: 16px;
+  }
+}
