@@ -35,8 +35,14 @@ public class SecurityConfig {
                 .requestMatchers("/users/register").permitAll()
                 .requestMatchers("/users/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/users/**").permitAll()
+                // 微博和评论的 GET 请求公开，但 POST/DELETE 需要鉴权
                 .requestMatchers(HttpMethod.GET, "/weibos/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/comments/**").permitAll()
+                // 需要鉴权的接口
+                .requestMatchers(HttpMethod.POST, "/weibos/**").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/weibos/**").authenticated()
+                .requestMatchers(HttpMethod.POST, "/comments/**").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/comments/**").authenticated()
                 // AI 接口 - 无需鉴权
                 .requestMatchers("/ai/**").permitAll()
                 // 上传接口 - 无需鉴权
