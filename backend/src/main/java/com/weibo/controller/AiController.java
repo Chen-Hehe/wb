@@ -167,6 +167,7 @@ public class AiController {
                     .timeout(Duration.ofSeconds(30))
                     .header("Content-Type", "application/json")
                     .header("Authorization", "Bearer " + apiKey)
+                    .header("X-DashScope-Async", "enable")
                     .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                     .build();
 
