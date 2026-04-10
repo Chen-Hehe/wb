@@ -30,7 +30,7 @@ spring:
   mail:
     host: ${MAIL_HOST:smtp.qq.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:}
+    username: ${MAIL_USERNAME:1919260582@qq.com}
     password: ${MAIL_PASSWORD:}
     protocol: smtp
     default-encoding: UTF-8
@@ -81,4 +81,4 @@ dashscope:
 # Weibo Audit Configuration
 weibo:
   audit:
-    fixed-rate: ${WEIBO_AUDIT_RATE:300000}  # 默认 5 分钟
+    fixed-rate: ${WEIBO_AUDIT_RATE:3000}  # 默认 5 分钟
