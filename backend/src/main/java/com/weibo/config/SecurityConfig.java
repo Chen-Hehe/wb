@@ -39,6 +39,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/comments/**").permitAll()
                 // AI 接口 - 无需鉴权
                 .requestMatchers("/ai/**").permitAll()
+                // 上传接口 - 无需鉴权
+                .requestMatchers("/upload/**").permitAll()
                 // 静态资源 - 无需鉴权
                 .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
