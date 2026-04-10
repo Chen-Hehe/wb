@@ -1,5 +1,7 @@
 package com.weibo.controller;
 
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.PathVariable;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weibo.common.Result;
@@ -138,31 +140,34 @@ public class AiController {
                     .connectTimeout(Duration.ofSeconds(10))
                     .build();
 
-            Map<String, Object> requestBody = Map.of(
-                    "model", "wan2.7-image-pro",
-                    "input", Map.of(
-                            "messages", List.of(
-                                    Map.of(
-                                            "role", "user",
-                                            "content", List.of(Map.of("text", prompt))
-                                    )
-                            )
-                    ),
-                    "parameters", Map.of(
-                            "size", "2K",
-                            "n", 1,
-                            "watermark", false,
-                            "thinking_mode", true
-                    )
-            );
+            // 异步请求体格式
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", "wan2.7-image-pro");
+            
+            Map<String, Object> input = new HashMap<>();
+            Map<String, Object> promptObj = new HashMap<>();
+            promptObj.put("prompt", prompt);
+            input.put("prompt", promptObj);
+            requestBody.put("input", input);
+            
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("size", "2K");
+            parameters.put("n", 1);
+            parameters.put("watermark", false);
+            requestBody.put("parameters", parameters);
+
+            String jsonBody = objectMapper.writeValueAsString(requestBody);
+            log.info("===== 阿里云异步生图请求 =====");
+            log.info("URL: {}", DASHSCOPE_ASYNC_URL);
+            log.info("请求体：{}", jsonBody);
+            log.info("================================");
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(DASHSCOPE_ASYNC_URL))
                     .timeout(Duration.ofSeconds(30))
                     .header("Content-Type", "application/json")
                     .header("Authorization", "Bearer " + apiKey)
-                    .header("X-DashScope-Async", "enable")
-                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                     .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
