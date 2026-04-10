@@ -64,6 +64,16 @@ public class Weibo implements Serializable {
     private Integer status;
     
     /**
+     * 审核状态 0-待审核 1-通过 2-不通过
+     */
+    private Integer pass;
+    
+    /**
+     * 审核备注/不通过原因
+     */
+    private String remark;
+    
+    /**
      * 创建时间
      */
     @TableField(fill = FieldFill.INSERT)

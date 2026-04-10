@@ -3,6 +3,8 @@ package com.weibo.service.impl;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weibo.dto.UserVO;
 import com.weibo.dto.WeiboVO;
 import com.weibo.entity.Attention;
@@ -17,11 +19,20 @@ import com.weibo.mapper.WeiboMapper;
 import com.weibo.service.UserService;
 import com.weibo.service.WeiboService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -29,6 +40,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class WeiboServiceImpl implements WeiboService {
     
     private final WeiboMapper weiboMapper;
@@ -36,6 +48,12 @@ public class WeiboServiceImpl implements WeiboService {
     private final AttentionMapper attentionMapper;
     private final WeiboLikeMapper weiboLikeMapper;
     private final UserService userService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    
+    @Value("${dashscope.api-key:${DASHSCOPE_API_KEY:}}")
+    private String apiKey;
+    
+    private static final String DASHSCOPE_CHAT_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
     
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -44,11 +62,18 @@ public class WeiboServiceImpl implements WeiboService {
             throw BusinessException.of("微博内容或图片不能为空");
         }
         
+        // AI 审核微博内容
+        String title = weibo.getContent().length() > 20 ? weibo.getContent().substring(0, 20) : weibo.getContent();
+        AiCheckResult checkResult = aiCheck(title, weibo.getContent());
+        
         weibo.setUserId(userId);
         weibo.setStatus(1);
         weibo.setRepostCount(0);
         weibo.setCommentCount(0);
         weibo.setLikeCount(0);
+        // 设置审核结果
+        weibo.setPass(checkResult.getIspass());
+        weibo.setRemark(checkResult.getReson());
         
         weiboMapper.insert(weibo);
         return getWeiboVO(weibo, userId);
@@ -84,6 +109,7 @@ public class WeiboServiceImpl implements WeiboService {
         Page<Weibo> weiboPage = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<Weibo> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Weibo::getStatus, 1)
+                   .eq(Weibo::getPass, 1)  // 只显示审核通过的数据
                    .orderByDesc(Weibo::getCreatedTime);
         
         Page<Weibo> page = weiboMapper.selectPage(weiboPage, queryWrapper);
@@ -103,6 +129,7 @@ public class WeiboServiceImpl implements WeiboService {
         LambdaQueryWrapper<Weibo> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Weibo::getUserId, userId)
                    .eq(Weibo::getStatus, 1)
+                   .eq(Weibo::getPass, 1)  // 只显示审核通过的数据
                    .orderByDesc(Weibo::getCreatedTime);
         
         Page<Weibo> page = weiboMapper.selectPage(weiboPage, queryWrapper);
@@ -139,6 +166,7 @@ public class WeiboServiceImpl implements WeiboService {
         LambdaQueryWrapper<Weibo> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.in(Weibo::getUserId, followeeIds)
                    .eq(Weibo::getStatus, 1)
+                   .eq(Weibo::getPass, 1)  // 只显示审核通过的数据
                    .orderByDesc(Weibo::getCreatedTime);
         
         Page<Weibo> page = weiboMapper.selectPage(weiboPage, queryWrapper);
@@ -228,6 +256,138 @@ public class WeiboServiceImpl implements WeiboService {
         weiboMapper.updateById(originalWeibo);
         
         return getWeiboVO(repostWeibo, userId);
+    }
+    
+    @Override
+    public AiCheckResult aiCheck(String title, String content) {
+        if (!StringUtils.hasText(apiKey)) {
+            log.warn("未配置 DASHSCOPE_API_KEY，默认审核通过");
+            return new AiCheckResult(1, "");
+        }
+        
+        String prompt = String.format(
+            "你是一个严谨的内容审核员，需要审核用户发表的博客的标题和内容是否包含非法、违规、敏感或不适当的内容。\n" +
+            "请仅输出标准 JSON 格式，不要有任何其他文字、标记或解释。\n" +
+            "如果内容合规，返回：{\"ispass\":1,\"reson\":\"\"}\n" +
+            "如果内容违规，返回：{\"ispass\":0,\"reson\":\"具体违规原因\"}\n" +
+            "审核标准：\n" +
+            "1. 不能包含政治敏感内容\n" +
+            "2. 不能包含色情低俗内容\n" +
+            "3. 不能包含暴力恐怖内容\n" +
+            "4. 不能包含违法信息\n" +
+            "5. 不能包含人身攻击或歧视内容\n" +
+            "\n" +
+            "标题：%s\n" +
+            "内容：%s",
+            title != null ? title : "",
+            content != null ? content : ""
+        );
+        
+        try {
+            HttpClient client = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build();
+            
+            Map<String, Object> body = Map.of(
+                "model", "qwen-plus",
+                "messages", List.of(
+                    Map.of(
+                        "role", "system",
+                        "content", "你是一个严谨的内容审核员，只输出标准 JSON 格式，不要有任何其他文字。"
+                    ),
+                    Map.of(
+                        "role", "user",
+                        "content", prompt
+                    )
+                ),
+                "temperature", 0.1
+            );
+            
+            String jsonBody = objectMapper.writeValueAsString(body);
+            log.info("===== AI 审核请求 =====");
+            log.info("标题：{}", title);
+            log.info("内容长度：{}", content != null ? content.length() : 0);
+            
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(DASHSCOPE_CHAT_URL))
+                    .timeout(Duration.ofSeconds(30))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
+            
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            String responseBody = response.body();
+            log.info("===== AI 审核响应 =====");
+            log.info("状态码：{}", response.statusCode());
+            log.info("响应体：{}", responseBody);
+            
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                log.warn("AI 审核 API 调用失败 status={}", response.statusCode());
+                return new AiCheckResult(1, ""); // API 失败时默认通过
+            }
+            
+            JsonNode root = objectMapper.readTree(responseBody);
+            String aiResponse = root.path("choices").path(0).path("message").path("content").asText();
+            log.info("AI 审核原始响应：{}", aiResponse);
+            
+            // 解析 AI 返回的 JSON
+            if (!StringUtils.hasText(aiResponse)) {
+                log.warn("AI 审核返回内容为空");
+                return new AiCheckResult(1, "");
+            }
+            
+            // 提取 JSON 部分（防止 AI 返回多余文字）
+            String jsonStr = extractJson(aiResponse);
+            if (jsonStr == null) {
+                log.warn("无法从 AI 响应中提取 JSON: {}", aiResponse);
+                return new AiCheckResult(1, "");
+            }
+            
+            try {
+                cn.hutool.json.JSONObject result = JSONUtil.parseObj(jsonStr);
+                Integer ispass = result.get("ispass", Integer.class);
+                String reson = result.getStr("reson", "");
+                
+                if (ispass == null) ispass = 1;
+                if (reson == null) reson = "";
+                
+                log.info("审核结果：ispass={}, reson={}", ispass, reson);
+                return new AiCheckResult(ispass, reson);
+            } catch (Exception e) {
+                log.warn("解析 AI 审核结果 JSON 失败：{}", e.getMessage());
+                return new AiCheckResult(1, "");
+            }
+            
+        } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            log.error("调用 AI 审核失败", e);
+            return new AiCheckResult(1, ""); // 调用失败时默认通过
+        }
+    }
+    
+    /**
+     * 从文本中提取 JSON 字符串
+     */
+    private String extractJson(String text) {
+        if (text == null) return null;
+        
+        // 尝试直接解析
+        if (text.trim().startsWith("{")) {
+            return text.trim();
+        }
+        
+        // 查找 JSON 对象
+        int start = text.indexOf("{");
+        int end = text.lastIndexOf("}");
+        
+        if (start >= 0 && end > start) {
+            return text.substring(start, end + 1);
+        }
+        
+        return null;
     }
     
     private WeiboVO getWeiboVO(Weibo weibo, Long currentUserId) {

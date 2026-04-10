@@ -55,4 +55,28 @@ public interface WeiboService {
      * 转发微博
      */
     WeiboVO repostWeibo(Long userId, Long weiboId, String content);
+    
+    /**
+     * AI 审核微博内容
+     * @param title 微博标题
+     * @param content 微博内容
+     * @return 审核结果 {ispass: 1/0, reson: ""/"原因"}
+     */
+    AiCheckResult aiCheck(String title, String content);
+    
+    /**
+     * AI 审核结果 DTO
+     */
+    class AiCheckResult {
+        private Integer ispass;
+        private String reson;
+        
+        public AiCheckResult(Integer ispass, String reson) {
+            this.ispass = ispass;
+            this.reson = reson;
+        }
+        
+        public Integer getIspass() { return ispass; }
+        public String getReson() { return reson; }
+    }
 }
